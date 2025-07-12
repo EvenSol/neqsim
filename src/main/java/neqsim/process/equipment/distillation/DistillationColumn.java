@@ -413,6 +413,16 @@ public class DistillationColumn extends ProcessEquipmentBaseClass implements Dis
   /**
    * Solve the column using a simple Broyden mixing of tray temperatures.
    *
+   * <p>This zero-argument variant will generate a random calculation identifier
+   * and delegate to {@link #runBroyden(UUID)}.</p>
+   */
+  public void runBroyden() {
+    runBroyden(java.util.UUID.randomUUID());
+  }
+
+  /**
+   * Solve the column using a simple Broyden mixing of tray temperatures.
+   *
    * @param id calculation identifier
    */
   public void runBroyden(UUID id) {

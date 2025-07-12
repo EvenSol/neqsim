@@ -1430,9 +1430,8 @@ public class ThermodynamicOperations implements java.io.Serializable, Cloneable 
       fraction = 1.0 - 1.0e-10;
     }
     ConstantDutyFlashInterface operation = new ConstantDutyTemperatureFlash(system);
-    // TODO: bug, sum of beta will not equal 1
-    system.setBeta(1, fraction);
     system.setBeta(0, fraction);
+    system.setBeta(1, 1.0 - fraction);
     operation.run();
     if (Double.isNaN(system.getPressure()) || operation.isSuperCritical()) {
       throw new neqsim.util.exception.IsNaNException(this, "constantPhaseFractionTemperatureFlash",

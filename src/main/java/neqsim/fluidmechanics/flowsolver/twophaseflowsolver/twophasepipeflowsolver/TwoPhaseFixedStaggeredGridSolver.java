@@ -144,6 +144,119 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
   protected double[][] oldInternalEnergy;
   protected double[][] oldImpuls;
   protected double[][] oldEnergy;
+  private static final double RESIDUAL_EPSILON = 1e-20;
+  private static final double RELAXATION_MIN = 0.05;
+  private static final double RELAXATION_MAX = 0.7;
+  private static final double RELAXATION_DEFAULT = 0.2;
+  /** Last solver diagnostics from solveTDMA. */
+  private transient SolverDiagnostics lastSolverDiagnostics = new SolverDiagnostics();
+
+  /**
+   * Detailed convergence diagnostics for the latest solveTDMA execution.
+   */
+  public static class SolverDiagnostics {
+    private int topLevelIterations = 0;
+    private double finalMaxResidual = Double.NaN;
+    private boolean converged = false;
+    private String terminationReason = "NOT_RUN";
+    private int momentumMaxIterationsUsed = 0;
+    private int phaseFractionMaxIterationsUsed = 0;
+    private int energyMaxIterationsUsed = 0;
+    private int compositionMaxIterationsUsed = 0;
+    private boolean momentumHitIterationLimit = false;
+    private boolean phaseFractionHitIterationLimit = false;
+    private boolean energyHitIterationLimit = false;
+    private boolean compositionHitIterationLimit = false;
+    private double momentumRelaxationUsed = RELAXATION_DEFAULT;
+    private double phaseFractionRelaxationUsed = RELAXATION_DEFAULT;
+    private double energyRelaxationUsed = RELAXATION_DEFAULT;
+    private double compositionRelaxationUsed = RELAXATION_DEFAULT;
+
+    /**
+     * Creates a readable diagnostics summary.
+     *
+     * @return summary string
+     */
+    @Override
+    public String toString() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("SolverDiagnostics{");
+      sb.append("converged=").append(converged);
+      sb.append(", topLevelIterations=").append(topLevelIterations);
+      sb.append(", finalMaxResidual=").append(finalMaxResidual);
+      sb.append(", terminationReason='").append(terminationReason).append("'");
+      sb.append(", momentumIter=").append(momentumMaxIterationsUsed);
+      sb.append(", phaseIter=").append(phaseFractionMaxIterationsUsed);
+      sb.append(", energyIter=").append(energyMaxIterationsUsed);
+      sb.append(", compositionIter=").append(compositionMaxIterationsUsed);
+      sb.append('}');
+      return sb.toString();
+    }
+
+    public int getTopLevelIterations() {
+      return topLevelIterations;
+    }
+
+    public double getFinalMaxResidual() {
+      return finalMaxResidual;
+    }
+
+    public boolean isConverged() {
+      return converged;
+    }
+
+    public String getTerminationReason() {
+      return terminationReason;
+    }
+
+    public int getMomentumMaxIterationsUsed() {
+      return momentumMaxIterationsUsed;
+    }
+
+    public int getPhaseFractionMaxIterationsUsed() {
+      return phaseFractionMaxIterationsUsed;
+    }
+
+    public int getEnergyMaxIterationsUsed() {
+      return energyMaxIterationsUsed;
+    }
+
+    public int getCompositionMaxIterationsUsed() {
+      return compositionMaxIterationsUsed;
+    }
+
+    public boolean isMomentumHitIterationLimit() {
+      return momentumHitIterationLimit;
+    }
+
+    public boolean isPhaseFractionHitIterationLimit() {
+      return phaseFractionHitIterationLimit;
+    }
+
+    public boolean isEnergyHitIterationLimit() {
+      return energyHitIterationLimit;
+    }
+
+    public boolean isCompositionHitIterationLimit() {
+      return compositionHitIterationLimit;
+    }
+
+    public double getMomentumRelaxationUsed() {
+      return momentumRelaxationUsed;
+    }
+
+    public double getPhaseFractionRelaxationUsed() {
+      return phaseFractionRelaxationUsed;
+    }
+
+    public double getEnergyRelaxationUsed() {
+      return energyRelaxationUsed;
+    }
+
+    public double getCompositionRelaxationUsed() {
+      return compositionRelaxationUsed;
+    }
+  }
 
   /**
    * <p>
@@ -235,6 +348,59 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
    */
   public SolverType getSolverTypeEnum() {
     return this.solverTypeEnum;
+  }
+
+  /**
+   * Gets diagnostics from the latest solveTDMA run.
+   *
+   * @return solver diagnostics
+   */
+  public SolverDiagnostics getLastSolverDiagnostics() {
+    return lastSolverDiagnostics;
+  }
+
+  /**
+   * Safely calculates a relative residual while protecting against division by very small numbers.
+   *
+   * @param numeratorNorm residual norm
+   * @param referenceNorm reference norm
+   * @return relative residual
+   */
+  private double calcRelativeResidual(double numeratorNorm, double referenceNorm) {
+    double denominator = Math.max(Math.abs(referenceNorm), RESIDUAL_EPSILON);
+    return Math.abs(numeratorNorm) / denominator;
+  }
+
+  /**
+   * Adaptive relaxation update based on residual trend.
+   *
+   * @param currentRelaxation current relaxation factor
+   * @param currentResidual current residual value
+   * @param previousResidual previous residual value
+   * @return updated relaxation factor
+   */
+  private double updateAdaptiveRelaxation(double currentRelaxation, double currentResidual,
+      double previousResidual) {
+    double relaxation = currentRelaxation;
+    if (!Double.isFinite(currentResidual)) {
+      relaxation = Math.max(RELAXATION_MIN, 0.5 * relaxation);
+    } else if (Double.isFinite(previousResidual) && previousResidual > 0.0) {
+      double ratio = currentResidual / Math.max(previousResidual, RESIDUAL_EPSILON);
+      if (ratio > 1.2) {
+        relaxation = Math.max(RELAXATION_MIN, 0.5 * relaxation);
+      } else if (ratio < 0.7) {
+        relaxation = Math.min(RELAXATION_MAX, relaxation * 1.15);
+      }
+    }
+    if (!Double.isFinite(relaxation)) {
+      relaxation = RELAXATION_DEFAULT;
+    }
+    if (relaxation < RELAXATION_MIN) {
+      relaxation = RELAXATION_MIN;
+    } else if (relaxation > RELAXATION_MAX) {
+      relaxation = RELAXATION_MAX;
+    }
+    return relaxation;
   }
 
   /**
@@ -720,7 +886,16 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
    * @param phaseNum a int
    */
   public void initPressure(int phaseNum) {
-    final double relaxation = 0.2;
+    initPressure(phaseNum, RELAXATION_DEFAULT);
+  }
+
+  /**
+   * Initializes pressure with caller-defined relaxation.
+   *
+   * @param phaseNum phase number
+   * @param relaxation relaxation factor (0-1)
+   */
+  public void initPressure(int phaseNum, double relaxation) {
     final double maxStepBar = 10.0;
     final double minPressureBar = 1e-3;
     for (int i = 0; i < numberOfNodes; i++) {
@@ -836,7 +1011,16 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
    * @param phase a int
    */
   public void initVelocity(int phase) {
-    final double relaxation = 0.2;
+    initVelocity(phase, RELAXATION_DEFAULT);
+  }
+
+  /**
+   * Initializes velocity with caller-defined relaxation.
+   *
+   * @param phase phase number
+   * @param relaxation relaxation factor (0-1)
+   */
+  public void initVelocity(int phase, double relaxation) {
     final double minVelocity = 0.0;
     final double maxVelocity = 1.0e4;
     for (int i = 0; i < numberOfNodes; i++) {
@@ -877,7 +1061,16 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
    * @param phaseNum a int
    */
   public void initTemperature(int phaseNum) {
-    final double relaxation = 0.2;
+    initTemperature(phaseNum, RELAXATION_DEFAULT);
+  }
+
+  /**
+   * Initializes temperature with caller-defined relaxation.
+   *
+   * @param phaseNum phase number
+   * @param relaxation relaxation factor (0-1)
+   */
+  public void initTemperature(int phaseNum, double relaxation) {
     final double maxStepK = 20.0;
     final double minTempK = 50.0;
     final double maxTempK = 5000.0;
@@ -949,7 +1142,16 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
    * @param phase a int
    */
   public void initPhaseFraction(int phase) {
-    final double relaxation = 0.2;
+    initPhaseFraction(phase, RELAXATION_DEFAULT);
+  }
+
+  /**
+   * Initializes phase fraction with caller-defined relaxation.
+   *
+   * @param phase phase number
+   * @param relaxation relaxation factor (0-1)
+   */
+  public void initPhaseFraction(int phase, double relaxation) {
     final double minFraction = 1.0e-12;
     final double maxFraction = 1.0 - minFraction;
     for (int i = 0; i < numberOfNodes; i++) {
@@ -984,26 +1186,31 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
    * @param comp a int
    */
   public void initComposition(int phaseNum, int comp) {
+    initComposition(phaseNum, comp, RELAXATION_DEFAULT);
+  }
+
+  /**
+   * Initializes composition with caller-defined relaxation.
+   *
+   * @param phaseNum phase number
+   * @param comp component number
+   * @param relaxation relaxation factor (0-1)
+   */
+  public void initComposition(int phaseNum, int comp, double relaxation) {
     for (int j = 0; j < numberOfNodes; j++) {
-      if ((pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp].getx()
-          + diffMatrix.get(j, 0) * pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getMolarMass()
-              / pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp]
-                  .getMolarMass()) > 1.0) {
+      double delta = relaxation * diffMatrix.get(j, 0)
+          * pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getMolarMass()
+          / pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp]
+              .getMolarMass();
+      double updated = pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp].getx()
+          + delta;
+      if (updated > 1.0) {
         pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp].setx(1.0 - 1e-30);
-      } else if (pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp].getx()
-          + diffMatrix.get(j, 0) * pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getMolarMass()
-              / pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp]
-                  .getMolarMass() < 0.0) {
+      } else if (updated < 0.0) {
         pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp].setx(1e-30);
       } else {
         pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp]
-            .setx(pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp].getx()
-                + diffMatrix.get(j, 0)
-                    * pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getMolarMass()
-                    / pipe.getNode(j).getBulkSystem().getPhase(phaseNum).getComponents()[comp]
-                        .getMolarMass());
-        // pipe.getNode(j).getBulkSystem().getPhases()[0].getComponent(p).getx()
-        // + 0.5*diff4Matrix[p].get(j,0));
+            .setx(updated);
       }
 
       double xSum = 0.0;
@@ -1784,8 +1991,13 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
     int iter = 0;
     int iterTop = 0;
     double maxDiff = 1e10;
-    // double maxDiffOld = 1e10;
     double diff = 0;
+    lastSolverDiagnostics = new SolverDiagnostics();
+    double momentumRelaxation = RELAXATION_DEFAULT;
+    double phaseRelaxation = RELAXATION_DEFAULT;
+    double energyRelaxation = RELAXATION_DEFAULT;
+    double compRelaxation = RELAXATION_DEFAULT;
+
     initProfiles();
     dn = new double[numberOfNodes][pipe.getNode(0).getBulkSystem().getPhases()[0]
         .getNumberOfComponents()];
@@ -1803,67 +2015,91 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
     }
 
     do {
-      // maxDiffOld = maxDiff;
       maxDiff = 0;
       iterTop++;
 
       // Solve momentum equations (velocity and pressure drop)
       iter = 0;
       if (solverTypeEnum.solveMomentum()) {
-        // For single-phase flow, skip TDMA momentum solver
-        // Velocity is constant along the pipe for incompressible flow
-        // Just calculate the pressure drop from friction
         if (numPhasesToSolve < 2) {
-          // Single-phase: preserve initial velocity, only update pressure
           updatePressureFromMomentumBalance();
-          maxDiff = 0; // No velocity iteration needed
+          maxDiff = 0;
         } else {
-          // Two-phase: use full TDMA momentum solver
           for (int phaseNum = 0; phaseNum < numPhasesToSolve; phaseNum++) {
+            double previousDiff = Double.POSITIVE_INFINITY;
+            boolean localConverged = false;
+            int iterLocal = 0;
             do {
+              iterLocal++;
               iter++;
               setImpulsMatrixTDMA(phaseNum);
               Matrix solOld = solMatrix[phaseNum].copy();
               d = TDMAsolve.solve(a, b, c, r);
               solMatrix[phaseNum] = new Matrix(d, 1).transpose();
               diffMatrix = solMatrix[phaseNum].minus(solOld);
-              // System.out.println("diff impuls: "+
-              // diffMatrix.norm2()/solMatrix[phase].norm2());
-              diff = Math.abs(diffMatrix.norm1() / solMatrix[phaseNum].norm1());
+              diff = calcRelativeResidual(diffMatrix.norm1(), solMatrix[phaseNum].norm1());
               if (diff > maxDiff) {
                 maxDiff = diff;
               }
-              initVelocity(phaseNum);
-            } while (diff > 1e-10 && iter < 100);
+              momentumRelaxation = updateAdaptiveRelaxation(momentumRelaxation, diff, previousDiff);
+              previousDiff = diff;
+              initVelocity(phaseNum, momentumRelaxation);
+              localConverged = diff <= 1e-10;
+            } while (!localConverged && iterLocal < 100);
+
+            if (iterLocal > lastSolverDiagnostics.momentumMaxIterationsUsed) {
+              lastSolverDiagnostics.momentumMaxIterationsUsed = iterLocal;
+            }
+            if (!localConverged && iterLocal >= 100) {
+              lastSolverDiagnostics.momentumHitIterationLimit = true;
+              if (massTransferConfig.isEnableDiagnostics()) {
+                logger.warn(
+                    "Momentum equation reached iteration limit for phase {} with residual {}",
+                    phaseNum, diff);
+              }
+            }
           }
-          // Update pressure profile based on current velocities (integrated momentum balance)
           updatePressureFromMomentumBalance();
         }
       }
 
       // Solve phase fraction equations
-      // Skip for single-phase flow (phase fraction is 1.0 for the existing phase)
       iter = 0;
       if (solverTypeEnum.solvePhaseFraction() && numPhasesToSolve >= 2) {
         for (int phaseNum = 1; phaseNum < 2; phaseNum++) {
+          double previousDiff = Double.POSITIVE_INFINITY;
+          boolean localConverged = false;
+          int iterLocal = 0;
           do {
+            iterLocal++;
             iter++;
             setPhaseFractionMatrix(phaseNum);
             Matrix solOld = solPhaseConsMatrix[phaseNum].copy();
             d = TDMAsolve.solve(a, b, c, r);
             solPhaseConsMatrix[phaseNum] = new Matrix(d, 1).transpose();
-            // solPhaseConsMatrix[phase].print(10,10);
             diffMatrix = solPhaseConsMatrix[phaseNum].minus(solOld);
-            // System.out.println("diff phase frac: "+
-            // diffMatrix.norm2()/solPhaseConsMatrix[phase].norm2());
-            diff = Math.abs(diffMatrix.norm1() / solPhaseConsMatrix[phaseNum].norm1());
+            diff = calcRelativeResidual(diffMatrix.norm1(), solPhaseConsMatrix[phaseNum].norm1());
             if (diff > maxDiff) {
               maxDiff = diff;
             }
-            initPhaseFraction(phaseNum);
-          } while (diff > 1e-15 && iter < 100);
+            phaseRelaxation = updateAdaptiveRelaxation(phaseRelaxation, diff, previousDiff);
+            previousDiff = diff;
+            initPhaseFraction(phaseNum, phaseRelaxation);
+            localConverged = diff <= 1e-15;
+          } while (!localConverged && iterLocal < 100);
+
+          if (iterLocal > lastSolverDiagnostics.phaseFractionMaxIterationsUsed) {
+            lastSolverDiagnostics.phaseFractionMaxIterationsUsed = iterLocal;
+          }
+          if (!localConverged && iterLocal >= 100) {
+            lastSolverDiagnostics.phaseFractionHitIterationLimit = true;
+            if (massTransferConfig.isEnableDiagnostics()) {
+              logger.warn(
+                  "Phase-fraction equation reached iteration limit for phase {} with residual {}",
+                  phaseNum, diff);
+            }
+          }
         }
-        // Recompute pressure after phase-fraction update (affects wall contact lengths, etc.)
         if (solverTypeEnum.solveMomentum()) {
           updatePressureFromMomentumBalance();
         }
@@ -1873,26 +2109,39 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
       if (solverTypeEnum.solveEnergy()) {
         for (int phaseNum = 0; phaseNum < 2; phaseNum++) {
           iter = 0;
+          double previousDiff = Double.POSITIVE_INFINITY;
+          boolean localConverged = false;
+          int iterLocal = 0;
           do {
+            iterLocal++;
             iter++;
             Matrix sol3Old = sol3Matrix[phaseNum].copy();
             setEnergyMatrixTDMA(phaseNum);
             d = TDMAsolve.solve(a, b, c, r);
             sol3Matrix[phaseNum] = new Matrix(d, 1).transpose();
             diffMatrix = sol3Matrix[phaseNum].minus(sol3Old);
-            // System.out.println("diff energy: " +
-            // diffMatrix.norm2()/sol3Matrix[phase].norm2());
-            // diffMatrix.print(10,10);
-            diff = Math.abs(diffMatrix.norm1() / sol3Matrix[phaseNum].norm1());
+            diff = calcRelativeResidual(diffMatrix.norm1(), sol3Matrix[phaseNum].norm1());
             if (diff > maxDiff) {
               maxDiff = diff;
             }
-            initTemperature(phaseNum);
-          } while (diff > 1e-15 && iter < 100);
+            energyRelaxation = updateAdaptiveRelaxation(energyRelaxation, diff, previousDiff);
+            previousDiff = diff;
+            initTemperature(phaseNum, energyRelaxation);
+            localConverged = diff <= 1e-15;
+          } while (!localConverged && iterLocal < 100);
+
+          if (iterLocal > lastSolverDiagnostics.energyMaxIterationsUsed) {
+            lastSolverDiagnostics.energyMaxIterationsUsed = iterLocal;
+          }
+          if (!localConverged && iterLocal >= 100) {
+            lastSolverDiagnostics.energyHitIterationLimit = true;
+            if (massTransferConfig.isEnableDiagnostics()) {
+              logger.warn("Energy equation reached iteration limit for phase {} with residual {}",
+                  phaseNum, diff);
+            }
+          }
         }
 
-        // Check for phase transitions after temperature changes (TPflash)
-        // If we were in single-phase mode and a new phase forms, switch to two-phase mode
         if (numPhasesToSolve < 2) {
           numPhasesToSolve = checkPhaseTransitions();
         }
@@ -1902,41 +2151,73 @@ public class TwoPhaseFixedStaggeredGridSolver extends TwoPhasePipeFlowSolver
       if (solverTypeEnum.solveComposition()) {
         double compDiff = 0.0;
         int compIter = 0;
+        double previousCompDiff = Double.POSITIVE_INFINITY;
         do {
           calcFluxes();
           compIter++;
+          compDiff = 0.0;
           for (int phaseNum = 0; phaseNum < 2; phaseNum++) {
             iter = 0;
             for (int p = 0; p < pipe.getNode(0).getBulkSystem().getPhases()[0]
                 .getNumberOfComponents() - 1; p++) {
+              boolean localConverged = false;
+              int iterLocal = 0;
               do {
+                iterLocal++;
                 iter++;
                 setComponentConservationMatrix(phaseNum, p);
                 Matrix solOld = solMolFracMatrix[phaseNum][p].copy();
                 xNew[phaseNum][p] = TDMAsolve.solve(a, b, c, r);
                 solMolFracMatrix[phaseNum][p] = new Matrix(xNew[phaseNum][p], 1).transpose();
                 diffMatrix = solMolFracMatrix[phaseNum][p].minus(solOld);
-                diff = Math.abs(diffMatrix.norm2() / solMolFracMatrix[phaseNum][p].norm2());
+                diff = calcRelativeResidual(diffMatrix.norm2(), solMolFracMatrix[phaseNum][p].norm2());
                 if (diff > maxDiff) {
                   maxDiff = diff;
                 }
                 if (diff > compDiff) {
                   compDiff = diff;
                 }
-                // Matrix dmat = new Matrix(xNew[phase][p], 1);
-                // dmat.print(10,10);
-                initComposition(phaseNum, p);
-              } while (diff > 1e-12 && iter < 10);
+                compRelaxation = updateAdaptiveRelaxation(compRelaxation, diff, previousCompDiff);
+                previousCompDiff = diff;
+                initComposition(phaseNum, p, compRelaxation);
+                localConverged = diff <= 1e-12;
+              } while (!localConverged && iterLocal < 10);
+
+              if (iterLocal > lastSolverDiagnostics.compositionMaxIterationsUsed) {
+                lastSolverDiagnostics.compositionMaxIterationsUsed = iterLocal;
+              }
+              if (!localConverged && iterLocal >= 10) {
+                lastSolverDiagnostics.compositionHitIterationLimit = true;
+              }
             }
+          }
+          if (massTransferConfig.isEnableDiagnostics() && compIter >= 10 && compDiff > 1e-10) {
+            logger.warn("Composition equation reached outer iteration limit with residual {}",
+                compDiff);
           }
         } while (compDiff > 1e-10 && compIter < 10);
         initNodes();
       }
+    } while (Math.abs(maxDiff) > 1e-7 && iterTop < 15);
 
-      // initVelocity();
-      // this.setVelocities();*/
-    } while (Math.abs(maxDiff) > 1e-7 && iterTop < 15); // diffMatrix.norm2()/sol2Matrix.norm2())>0.1);
+    lastSolverDiagnostics.topLevelIterations = iterTop;
+    lastSolverDiagnostics.finalMaxResidual = maxDiff;
+    lastSolverDiagnostics.momentumRelaxationUsed = momentumRelaxation;
+    lastSolverDiagnostics.phaseFractionRelaxationUsed = phaseRelaxation;
+    lastSolverDiagnostics.energyRelaxationUsed = energyRelaxation;
+    lastSolverDiagnostics.compositionRelaxationUsed = compRelaxation;
+    lastSolverDiagnostics.converged = Math.abs(maxDiff) <= 1e-7;
+    if (lastSolverDiagnostics.converged) {
+      lastSolverDiagnostics.terminationReason = "CONVERGED";
+    } else if (iterTop >= 15) {
+      lastSolverDiagnostics.terminationReason = "TOP_LEVEL_ITERATION_LIMIT";
+    } else {
+      lastSolverDiagnostics.terminationReason = "STOPPED";
+    }
 
+    if (massTransferConfig.isEnableDiagnostics()) {
+      logger.info("Two-phase TDMA solve completed: {}", lastSolverDiagnostics.toString());
+    }
   }
 
   // ========================================================================

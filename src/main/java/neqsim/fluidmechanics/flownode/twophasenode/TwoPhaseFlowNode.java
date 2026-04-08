@@ -253,9 +253,9 @@ public abstract class TwoPhaseFlowNode extends FlowNode {
       // System.out.println("f " + f + " iterations " + iterations + " beta " + phaseFraction[0]);
     }
     // while (Math.abs(f) > 1e-6 && iterations < 100);
-    while (Math.abs((f - fOld) / f) > 1e-8 && iterations < 100);
+    while (Math.abs((f - fOld) / Math.max(Math.abs(f), 1e-20)) > 1e-8 && iterations < 100);
 
-    if (iterations == 10000) {
+    if (iterations == 100) {
       System.out.println("error in void init calc");
     }
     // System.out.println("f " + f + " iterations " + iterations + " beta " +

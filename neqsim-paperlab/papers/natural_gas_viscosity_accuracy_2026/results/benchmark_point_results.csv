@@ -1,0 +1,4 @@
+case_id,viscosity_reference_uPa_s,viscosity_srk_uPa_s,viscosity_pr_uPa_s,error_srk_pct,error_pr_pct
+L1,11.8,12.2,11.9,3.39,0.85
+C1,15.4,16.2,15.7,5.19,1.95
+H1,23.6,24.9,24.1,5.51,2.12

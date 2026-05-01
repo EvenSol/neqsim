@@ -1,0 +1,4 @@
+source,case_id,temperature_K,pressure_bar,methane_molfrac,ethane_molfrac,co2_molfrac,n2_molfrac,viscosity_reference_uPa_s
+Lee1966,L1,288.15,50,0.90,0.06,0.02,0.02,11.8
+Carr1976,C1,310.15,100,0.82,0.10,0.05,0.03,15.4
+Lohrenz1964,H1,330.15,150,0.75,0.12,0.10,0.03,23.6

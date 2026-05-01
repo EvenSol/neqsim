@@ -1,92 +1,68 @@
-# Accuracy of Viscosity Models for Natural Gas: Literature Synthesis and NeqSim Benchmarking Study Design
+# Accuracy of Natural-Gas Viscosity Models: A PaperLab Characterization Study
 
 ## Abstract
-Natural-gas viscosity is a key transport property for pressure-drop prediction, well deliverability, compressor sizing, and process simulation. This paper consolidates published evidence on gas-viscosity model accuracy and translates it into a practical NeqSim benchmarking workflow suitable for journal publication. Literature indicates that classical correlations (e.g., Lee–Gonzalez–Eakin family) remain practical for lean-gas screening, while broader corresponding-states / dense-gas methods are usually needed for rich, acid-gas, and near-critical conditions. Reported errors vary strongly by domain; for example, modern empirical regressions trained on large databases report overall AARD near 2–3% in their fitted windows, while broader non-hydrocarbon extensions are often reported below approximately 6% AARD. Building on this literature, we define a reproducible NeqSim protocol to compare SRK-based, PR-based, and tuned viscosity paths against literature datasets using segmented diagnostics (AARD, RMSE, bias, P10/P50/P90 error, and dense-gas residual trends).
+Natural-gas viscosity is a critical transport property in pressure-drop prediction, production-system hydraulics, and compressor process calculations, and small bias in viscosity can propagate into meaningful engineering error. This work rewrites the project using the PaperLab agent-and-skill workflow as a characterization study with explicit planning artifacts, benchmark configuration, and reproducible result packaging. A literature-derived seed dataset with lean, rich, and acid-gas points is used to compare two model paths (SRK and PR) under a common calculation protocol. Quantitative outputs are stored as pointwise residual tables and aggregate metrics (AARD and mean signed bias), and linked directly in the manuscript for traceability. On the current benchmark subset, PR performs better than SRK (AARD 1.64% vs 4.70%), while both paths show positive bias. The primary contribution is a reproducible baseline structure that is ready for extension to larger curated literature datasets and formal significance analysis.
 
-**Keywords:** natural gas viscosity, NeqSim, Lee-Gonzalez-Eakin, corresponding states, dense gas, benchmark
+## Keywords
+ gas viscosity; model validation; SRK; Peng-Robinson; PaperLab; NeqSim
 
 ## 1. Introduction
-Gas viscosity enters directly in Reynolds number, friction factor, and pressure-gradient calculations. In reservoir and process engineering, even modest viscosity bias can propagate into material-balance interpretation, tubing performance, and compressor duty calculations.
+Accurate gas viscosity is required for pressure-drop and flow calculations in reservoir and process engineering. Accuracy is known to be regime dependent, especially with richer compositions and non-hydrocarbon fractions. Accordingly, this work follows the PaperLab workflow for a characterization paper: define a benchmark plan, store a traceable dataset, run reproducible calculations, and report metrics with explicit links to artifacts.
 
-The central issue is not whether one model is “good,” but **where** it is good. Published comparative studies repeatedly show model ranking changes with pressure, temperature, and composition (especially heavy-end and acid-gas content). Therefore, model assessment must be regime-specific rather than based on a single global error value.
+## 2. Literature Context and Scope
+This study is grounded in classic and modern viscosity-correlation literature including foundational work by Lee et al. and later comparative studies with broader composition scope \cite{Lee1966,Sanjari2012,Londono2012}. The current dataset is a compact seed set intended to demonstrate and validate the benchmark pipeline. It is not presented as a final exhaustive meta-analysis.
 
-## 2. Literature Review of Similar Work
-### 2.1 Foundational and widely used models
-Classic natural-gas viscosity practice in petroleum engineering starts from Lee–Gonzalez–Eakin (LGE) style formulations and related reduced-property correlations. These methods are simple and robust for conventional lean-gas applications but are less reliable when extrapolated far outside their calibration envelope.
+## 3. Methods (PaperLab Workflow)
+### 3.1 Project planning artifacts
+- `plan.json` defines paper type, RQs, acceptance criteria, and deliverables.
+- `benchmark_config.json` defines model paths and metrics.
 
-### 2.2 Later empirical and modified correlations
-Later studies introduced expanded datasets and alternative functional forms for wider pressure/composition conditions. A frequently cited example reports a new empirical correlation with **AARD = 2.173%** on its validation dataset of 4089 points (Sanjari & Lay, 2012, Journal of Natural Gas Science and Engineering).
+### 3.2 Dataset
+Literature-derived benchmark points are stored in:
+- `data/literature_dataset.csv`
 
-### 2.3 Processing-focused model evaluation
-Londono et al. (2012, Fluid Phase Equilibria) compared viscosity methods for natural-gas processing and reported that both versions of their correlation achieved **overall AARD below 6%** for non-hydrocarbon components in the assessed scope.
+Each row contains source tag, pressure, temperature, composition, and reference viscosity.
 
-### 2.4 HPHT and sour-gas context in recent reviews
-Recent review literature on HPHT and sour-gas applications emphasizes that no universal model dominates all domains; model suitability depends on dense-gas behavior, compositional detail, and calibration coverage.
+### 3.3 Model comparison
+Two EOS-centered model paths are compared:
+1. SRK path
+2. PR path
 
-## 3. Evidence-Based Accuracy Expectations
-Based on published comparative literature:
-- **Lean methane-rich gas (moderate pressure):** classical correlations are often acceptable for screening-level studies.
-- **Rich gas / heavy-end influence:** correlation bias increases unless characterization quality is high.
-- **CO2/H2S-containing gas:** acid-gas-aware extensions or denser-physics transport paths are preferred.
-- **Near-critical/high-density conditions:** highest error sensitivity; uncertainty reporting is mandatory.
+For each data point, predicted viscosity is compared with reference viscosity and signed residuals are computed.
 
-## 4. NeqSim Benchmarking Methodology
-### 4.1 Objective
-Evaluate which NeqSim model path best reproduces literature reference data per regime, not just globally.
+### 3.4 Metrics
+Primary metrics:
+- Absolute average relative deviation (AARD, %)
+- Mean signed bias (%)
 
-### 4.2 Model paths to compare
-1. **Path A:** SRK EOS + default gas transport workflow.
-2. **Path B:** PR EOS + default gas transport workflow.
-3. **Path C:** tuned transport path (CSP/LBC/Pedersen style parameters where available from PVT data).
+Pointwise results are stored in `results/benchmark_point_results.csv`, and aggregate metrics in `results/benchmark_summary.json`.
 
-### 4.3 Dataset requirements
-Each literature point should include:
-- T [K], P [bar]
-- full composition (mole fractions; include CO2/H2S/N2 where present)
-- measured/reference viscosity
-- source metadata and uncertainty
+## 4. Results
+Using the current benchmark subset (`n = 3` points):
+- SRK: AARD = 4.70%, mean bias = +4.70%
+- PR: AARD = 1.64%, mean bias = +1.64%
 
-### 4.4 Reproducible run sequence in NeqSim
-For each model path and data point:
-1. Create fluid with identical composition.
-2. Apply consistent mixing rule.
-3. Run TP flash.
-4. Initialize properties.
-5. Record gas viscosity in a common unit (cP).
+In this seed dataset, both paths overpredict viscosity, but PR is closer to the reference values.
 
-### 4.5 Metrics and statistical tests
-Report by regime and globally:
-- AARD (%), RMSE (cP), mean signed bias (%), max abs error (%), P10/P50/P90 abs error (%).
-- Paired model-path comparison with signed-rank or paired t-test (as appropriate).
+## 5. Discussion
+This baseline confirms the intended PaperLab structure and traceability: every quantitative statement maps to files under `data/`, `results/`, and `step2_analysis/`. The observed ranking (PR better than SRK for the included points) should be interpreted as provisional until expanded with larger literature datasets and broader P-T-composition coverage.
 
-## 5. Journal-Ready Results Structure
-### 5.1 Mandatory tables
-- Regime-wise metric table (lean/rich/acid/near-critical)
-- Global summary table
-- Worst-case residual table (top 10 states)
-
-### 5.2 Mandatory figures
-- Parity plot (predicted vs literature viscosity)
-- Abs-error vs pressure and vs reduced density
-- Boxplot of abs error by regime
-
-### 5.3 Required discussion points
-- Where each model path wins/fails.
-- Physical reason for bias trends.
-- Engineering implications (pressure drop, flow, compressor work).
-- Recommendation matrix for model selection.
-
-## 6. Practical Recommendation Matrix
-- **Screening and lean gas:** start with simpler correlation-oriented path; validate with sampled points.
-- **Design and broad P–T–x envelope:** prefer EOS/transport workflow with regime validation.
-- **Sour and near-critical service:** require segmented validation and explicit uncertainty bands.
+## 6. Reproducibility Package
+Included artifacts:
+- Manuscript: `paper.md`
+- Plan and benchmark definitions: `plan.json`, `benchmark_config.json`
+- Data: `data/literature_dataset.csv`
+- Results: `results/benchmark_point_results.csv`, `results/benchmark_summary.json`
+- Notebook: `step2_analysis/01_viscosity_benchmark.ipynb`
+- References: `refs.bib`
 
 ## 7. Conclusions
-Literature and engineering practice agree on one core point: there is no universal best natural-gas viscosity model across all pressure, temperature, and composition domains. Reported best-in-class results near 2–3% AARD are generally tied to specific fitted windows, while broader applicability studies often report larger but acceptable errors (commonly below about 6% in targeted scopes). A publishable NeqSim study should therefore prioritize regime-wise validation, transparent uncertainty, and reproducible data/model artifacts rather than a single headline metric.
+This rewrite aligns the project with the PaperLab agent-and-skill workflow by adding planning metadata, benchmark configuration, bibliography, and traceable results packaging. The current benchmark indicates lower error for PR than SRK on the included literature-derived points. Next work is to scale the dataset and add regime-stratified plots and statistical significance testing for submission-grade evidence.
 
 ## References
-1. Lee, A.L., Gonzalez, M.H., Eakin, B.E. *The Viscosity of Natural Gases*. Journal of Petroleum Technology (classic foundational correlation work).
-2. Sanjari, E., Lay, E.N. (2012). *An accurate empirical correlation for predicting natural gas viscosity*. Journal of Natural Gas Science and Engineering, 9, 283–289. (Reported AARD 2.173% on 4089-point dataset).
-3. Londono, R.A., Archer, R.A., Blasingame, T.A. (2012). *Viscosity prediction for natural gas processing applications*. Fluid Phase Equilibria, 335, 138–149. (Processing-focused comparisons; reported non-hydrocarbon fits below 6% AARD).
-4. Recent HPHT/sour-gas review articles on natural-gas viscosity correlation development and limitations.
-5. NeqSim documentation on gas-property and viscosity workflows (SRK/PR transport usage and tuning options).
+\bibliographystyle{plain}
+\bibliography{refs}
+
+
+## Acknowledgements
+The authors acknowledge the NeqSim open-source community and the PaperLab workflow for reproducibility infrastructure.

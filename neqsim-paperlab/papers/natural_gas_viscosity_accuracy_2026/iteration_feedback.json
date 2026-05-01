@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-05-01T15:05:19.861114",
+  "score": 13,
+  "max_score": 13,
+  "score_pct": 100.0,
+  "paper_type": "characterization",
+  "feedback": [
+    {
+      "category": "structure",
+      "status": "OK",
+      "message": "Abstract section present"
+    },
+    {
+      "category": "structure",
+      "status": "OK",
+      "message": "Keywords section present"
+    },
+    {
+      "category": "structure",
+      "status": "OK",
+      "message": "Introduction present"
+    },
+    {
+      "category": "structure",
+      "status": "OK",
+      "message": "Conclusions present"
+    },
+    {
+      "category": "structure",
+      "status": "OK",
+      "message": "References present"
+    },
+    {
+      "category": "structure",
+      "status": "OK",
+      "message": "Acknowledgements present"
+    },
+    {
+      "category": "completeness",
+      "status": "OK",
+      "message": "No TODO placeholders remain"
+    },
+    {
+      "category": "writing",
+      "status": "OK",
+      "message": "Abstract: 142 words (limit 250)"
+    },
+    {
+      "category": "writing",
+      "status": "OK",
+      "message": "Abstract has sufficient length (142 words)"
+    },
+    {
+      "category": "writing",
+      "status": "OK",
+      "message": "NeqSim mentioned 1 times in body (good: algorithm-first)"
+    }
+  ],
+  "needs_work": []
+}

@@ -83,6 +83,7 @@ neqsim-paperlab/papers/*/
 !neqsim-paperlab/papers/gibbs_minimization_2026/
 !neqsim-paperlab/papers/tpflash_algorithms_2026/
 !neqsim-paperlab/papers/implicit_cpa_performance_2026/
+!neqsim-paperlab/papers/natural_gas_viscosity_accuracy_2026/
 
 # Book lab — ignore all book folders by default, then whitelist tracked ones
 neqsim-paperlab/books/*/

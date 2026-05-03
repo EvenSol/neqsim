@@ -156,7 +156,35 @@ if not report.isValid():
 result = ns.ProcessSystem.fromJsonAndRun(json_text)
 ```
 
-## 6. What validator checks today
+
+## 6. Importing E300 fluids (supported)
+
+The JSON builder supports loading fluid thermodynamics from Eclipse E300 data using
+`e300FilePath` in the `fluid` object.
+
+Example:
+
+```json
+{
+  "fluid": {
+    "model": "PR_LK",
+    "temperature": 310.15,
+    "pressure": 50.0,
+    "e300FilePath": "/absolute/path/to/fluid.e300"
+  },
+  "process": [
+    {"type": "Stream", "name": "feed", "properties": {"flowRate": [10000.0, "kg/hr"]}}
+  ]
+}
+```
+
+Notes:
+
+- When `e300FilePath` is provided, component properties and BIPs are sourced from the E300 file.
+- You can still validate the process structure with `ProcessSystem.validateJson(...)` before build/run.
+- For pre-built fluids from E300 workflows, use `ProcessSystem.fromJsonAndRun(json, fluid)`.
+
+## 7. What validator checks today
 
 Errors:
 - invalid JSON
@@ -168,7 +196,7 @@ Errors:
 Warnings:
 - inlet/inlets/streams input references that do not resolve to known unit/port names
 
-## 7. ProcessModel lifecycle JSON
+## 8. ProcessModel lifecycle JSON
 
 For lifecycle snapshots/versioning of full `ProcessModel` and `ProcessSystem` states,
 see:

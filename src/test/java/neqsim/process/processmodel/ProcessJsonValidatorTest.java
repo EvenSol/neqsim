@@ -75,4 +75,17 @@ class ProcessJsonValidatorTest {
     assertTrue(report.getWarningCount() > 0);
   }
 
+  @Test
+  void e300FluidDefinitionShouldValidate() {
+    String json = "{\"fluid\":{\"model\":\"PR_LK\",\"temperature\":310.15,\"pressure\":50.0,\"e300FilePath\":\"/tmp/fluid.e300\"},\"process\":[{\"type\":\"Stream\",\"name\":\"feed\"}]}";
+    ProcessJsonValidator.ValidationReport report = ProcessJsonValidator.validate(json);
+    assertTrue(report.isValid());
+  }
+
+  @Test
+  void namedFluidsWithFluidRefShouldValidate() {
+    String json = "{\"fluids\":{\"gas\":{\"model\":\"SRK\",\"temperature\":298.15,\"pressure\":50.0,\"components\":{\"methane\":1.0}}},\"process\":[{\"type\":\"Stream\",\"name\":\"gasFeed\",\"fluidRef\":\"gas\"}]}";
+    ProcessJsonValidator.ValidationReport report = ProcessJsonValidator.validate(json);
+    assertTrue(report.isValid());
+  }
 }

@@ -40,4 +40,39 @@ class ProcessJsonValidatorTest {
     ProcessJsonValidator.ValidationReport report = ProcessSystem.validateJson(json);
     assertTrue(report.isValid());
   }
+
+  @Test
+  void nullJsonShouldFail() {
+    ProcessJsonValidator.ValidationReport report = ProcessJsonValidator.validate(null);
+    assertFalse(report.isValid());
+  }
+
+  @Test
+  void malformedJsonShouldFail() {
+    ProcessJsonValidator.ValidationReport report = ProcessJsonValidator.validate("{bad");
+    assertFalse(report.isValid());
+  }
+
+  @Test
+  void missingTypeShouldFail() {
+    String json = "{\"process\":[{\"name\":\"feed\"}]}";
+    ProcessJsonValidator.ValidationReport report = ProcessJsonValidator.validate(json);
+    assertFalse(report.isValid());
+  }
+
+  @Test
+  void missingNameShouldFail() {
+    String json = "{\"process\":[{\"type\":\"Stream\"}]}";
+    ProcessJsonValidator.ValidationReport report = ProcessJsonValidator.validate(json);
+    assertFalse(report.isValid());
+  }
+
+  @Test
+  void unknownReferenceInStreamsObjectShouldWarn() {
+    String json = "{\"process\":[{\"type\":\"Separator\",\"name\":\"sep\",\"streams\":{\"inlet\":\"ghost\"}}]}";
+    ProcessJsonValidator.ValidationReport report = ProcessJsonValidator.validate(json);
+    assertTrue(report.isValid());
+    assertTrue(report.getWarningCount() > 0);
+  }
+
 }

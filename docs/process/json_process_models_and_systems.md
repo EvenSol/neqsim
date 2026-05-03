@@ -1,252 +1,179 @@
 ---
-title: JSON Format for Process Systems and Process Models
-description: Detailed schema-style guide for building NeqSim ProcessSystem and ProcessModel objects from JSON, including large flowsheets with recycles, mixers, and splitters.
+title: JSON Format for ProcessSystem and ProcessModel
+description: Accurate reference for NeqSim JSON process builder input, validation, and large flowsheet setup with mixers, splitters, and recycles.
 ---
 
-# JSON Format for Process Systems and Process Models
+# JSON Format for ProcessSystem and ProcessModel
 
-This guide documents the **JSON** format used to build and execute NeqSim process simulations with:
+This page documents the **actual JSON format** consumed by `ProcessSystem.fromJson(...)` and
+`ProcessSystem.fromJsonAndRun(...)`.
 
-- `ProcessSystem.fromJsonAndRun(...)` for a single flowsheet
-- `ProcessModel` JSON state patterns for multi-area plants
+## Quick answer: is there a JSON verifier?
 
-It focuses on practical usage for large configurations, including **mixers**, **splitters**, and **recycle loops**.
+Yes:
 
-## 1) Core Builder Pattern (`ProcessSystem.fromJsonAndRun`)
+- `ProcessSystem.validateJson(String json)`
+- `ProcessJsonValidator.validate(String json)`
 
-At minimum, the JSON has:
+Use validation as a pre-flight check before calling `fromJson()` or `fromJsonAndRun()`.
 
-- `schemaVersion` (recommended)
-- `units`: a list of equipment definitions
-- optional `connections`: explicit wiring metadata
+## 1. Root JSON structure (builder input)
 
-Typical Python execution:
+The builder expects a root object with these common keys:
 
-```python
-import json
+- `fluid` (optional): single default fluid definition
+- `fluids` (optional): named fluids map (for `fluidRef` on streams)
+- `process` (**required**): array of unit definitions
+- `autoRun` (optional): `true` to run immediately
 
-ProcessSystem = ns.ProcessSystem
-result = ProcessSystem.fromJsonAndRun(json.dumps(process_json))
-if result.isSuccess():
-    process = result.getProcessSystem()
-```
-
-Typical Java execution:
-
-```java
-SimulationResult result = ProcessSystem.fromJsonAndRun(jsonString);
-if (result.isSuccess()) {
-    ProcessSystem process = result.getProcessSystem();
-}
-```
-
-## 2) Unit Object Structure
-
-Each unit in `units` generally follows:
+Minimal valid structure:
 
 ```json
 {
-  "name": "HP Separator",
-  "type": "Separator",
-  "inputs": {
-    "pressure": {"value": 85.0, "unit": "bara"}
+  "fluid": {
+    "model": "SRK",
+    "temperature": 298.15,
+    "pressure": 50.0,
+    "mixingRule": "classic",
+    "components": {
+      "methane": 0.85,
+      "ethane": 0.10,
+      "propane": 0.05
+    }
   },
-  "streams": {
-    "inlet": "Feed",
-    "gasOut": "HP Separator.gasOutStream",
-    "liquidOut": "HP Separator.liquidOutStream"
-  }
-}
-```
-
-Conventions:
-
-- `name`: unique tag used in references.
-- `type`: NeqSim equipment type/factory key.
-- `inputs`: input variables (setpoints, targets, specs).
-- `streams`: named stream references for in/out wiring.
-
-## 3) Stream References and Addressing
-
-NeqSim supports dot-addressing for named outlet streams:
-
-- `"HP Separator.gasOutStream"`
-- `"Compressor.outStream"`
-
-For robust automation and debugging:
-
-- keep unit names stable and human-readable
-- avoid ambiguous aliases
-- prefer explicit stream names in larger flowsheets
-
-## 4) Large Process Example (Mixers, Splitters, Recycle)
-
-The example below shows a realistic topology:
-
-- feed split into two trains (`Splitter`)
-- train recombination (`Mixer`)
-- recycle gas returned upstream (`Recycle`)
-- final export compression
-
-```json
-{
-  "schemaVersion": "1.0",
-  "name": "Large Gas Process with Recycle",
-  "units": [
+  "process": [
     {
-      "name": "Feed",
       "type": "Stream",
-      "fluid": {
-        "temperature": {"value": 35.0, "unit": "C"},
-        "pressure": {"value": 90.0, "unit": "bara"},
-        "components": [
-          {"name": "methane", "amount": 0.88},
-          {"name": "ethane", "amount": 0.08},
-          {"name": "propane", "amount": 0.04}
-        ],
-        "mixingRule": "classic"
-      },
-      "inputs": {
-        "flowRate": {"value": 250000.0, "unit": "kg/hr"}
-      }
-    },
-    {
-      "name": "Feed Splitter",
-      "type": "Splitter",
-      "inputs": {
-        "splitFactors": [0.60, 0.40]
-      },
-      "streams": {
-        "inlet": "Feed",
-        "splitOut1": "Feed Splitter.splitStream_0",
-        "splitOut2": "Feed Splitter.splitStream_1"
-      }
-    },
-    {
-      "name": "Train A Cooler",
-      "type": "Cooler",
-      "inputs": {
-        "outTemperature": {"value": 20.0, "unit": "C"}
-      },
-      "streams": {
-        "inlet": "Feed Splitter.splitStream_0"
-      }
-    },
-    {
-      "name": "Train B Valve",
-      "type": "ThrottlingValve",
-      "inputs": {
-        "outletPressure": {"value": 65.0, "unit": "bara"}
-      },
-      "streams": {
-        "inlet": "Feed Splitter.splitStream_1"
-      }
-    },
-    {
-      "name": "Combined Mixer",
-      "type": "Mixer",
-      "streams": {
-        "inlets": [
-          "Train A Cooler.outStream",
-          "Train B Valve.outStream"
-        ],
-        "outlet": "Combined Mixer.outStream"
-      }
-    },
-    {
-      "name": "HP Separator",
-      "type": "Separator",
-      "streams": {
-        "inlet": "Combined Mixer.outStream",
-        "gasOut": "HP Separator.gasOutStream",
-        "liquidOut": "HP Separator.liquidOutStream"
-      }
-    },
-    {
-      "name": "Recycle Gas Compressor",
-      "type": "Compressor",
-      "inputs": {
-        "outletPressure": {"value": 92.0, "unit": "bara"}
-      },
-      "streams": {
-        "inlet": "HP Separator.gasOutStream"
-      }
-    },
-    {
-      "name": "Gas Recycle",
-      "type": "Recycle",
-      "streams": {
-        "inlet": "Recycle Gas Compressor.outStream",
-        "outlet": "Recycle Seed"
-      }
-    },
-    {
-      "name": "Recycle Seed Mixer",
-      "type": "Mixer",
-      "streams": {
-        "inlets": ["Feed", "Recycle Seed"],
-        "outlet": "Feed With Recycle"
-      }
-    },
-    {
-      "name": "Export Compressor",
-      "type": "Compressor",
-      "inputs": {
-        "outletPressure": {"value": 120.0, "unit": "bara"}
-      },
-      "streams": {
-        "inlet": "HP Separator.gasOutStream"
+      "name": "feed",
+      "properties": {
+        "flowRate": [50000.0, "kg/hr"]
       }
     }
-  ],
-  "connections": [
-    {"from": "Feed", "to": "Feed Splitter", "type": "MATERIAL", "label": "Main Feed"},
-    {"from": "Recycle Seed Mixer", "to": "Feed Splitter", "type": "MATERIAL", "label": "Feed+Recycle"},
-    {"from": "Feed Splitter", "to": "Train A Cooler", "type": "MATERIAL", "label": "Train A"},
-    {"from": "Feed Splitter", "to": "Train B Valve", "type": "MATERIAL", "label": "Train B"},
-    {"from": "Train A Cooler", "to": "Combined Mixer", "type": "MATERIAL", "label": "A to Mixer"},
-    {"from": "Train B Valve", "to": "Combined Mixer", "type": "MATERIAL", "label": "B to Mixer"},
-    {"from": "Combined Mixer", "to": "HP Separator", "type": "MATERIAL", "label": "To Separation"},
-    {"from": "HP Separator", "to": "Recycle Gas Compressor", "type": "MATERIAL", "label": "Gas Recycle Path"},
-    {"from": "Recycle Gas Compressor", "to": "Gas Recycle", "type": "MATERIAL", "label": "Recycle Closure"},
-    {"from": "Gas Recycle", "to": "Recycle Seed Mixer", "type": "MATERIAL", "label": "Back to Front"}
   ]
 }
 ```
 
-## 5) Recycle Guidance
+> Important: current builder input uses `process` + `properties` + `inlet`/`inlets` patterns.
 
-For recycle convergence:
+## 2. Unit definition format
 
-- Provide a physically reasonable recycle seed stream early in model setup.
-- Keep pressure levels consistent around the loop.
-- Add one recycle loop at a time when debugging large models.
+Each object in `process` should include:
 
-## 6) ProcessModel JSON State (Multi-Area Plants)
+- `type` (required)
+- `name` (strongly recommended and should be unique)
+- wiring fields depending on unit type:
+  - `inlet`: single reference string
+  - `inlets`: array of reference strings
+- `properties` object for operating conditions and setpoints
 
-For multiple areas (e.g., separation + compression), use `ProcessModelState` JSON snapshots:
+Example:
 
-- top-level metadata (`name`, `version`, `createdAt`)
-- per-area process states (`processStates`)
-- optional inter-area links (`interProcessConnections`)
-- execution settings (`executionConfig`)
+```json
+{
+  "type": "Compressor",
+  "name": "Comp",
+  "inlet": "HP Sep.gasOut",
+  "properties": {
+    "outletPressure": [80.0, "bara"]
+  }
+}
+```
 
-This format is intended for lifecycle/versioning and can be compared with `ProcessModelState.compare(...)`.
+## 3. Stream addressing and ports
 
-## 7) Validation Checklist
+References are by unit name, optionally with port suffix:
 
-Before committing a large JSON model:
+- `"feed"` (stream unit)
+- `"HP Sep.gasOut"`
+- `"HP Sep.liquidOut"`
+- `"Comp.out"` / `"Comp.outStream"`
 
-1. All unit `name` values are unique.
-2. Every referenced stream address exists.
-3. Fluid setup includes `mixingRule` (`"classic"` recommended baseline).
-4. Recycle loop has a valid seed and pressure-feasible return path.
-5. Simulation runs cleanly with no unresolved connections.
+The resolver trims surrounding whitespace.
 
-## 8) Related Documentation
+## 4. Large process JSON example (splitter + mixer + recycle)
+
+```json
+{
+  "fluid": {
+    "model": "SRK",
+    "temperature": 298.15,
+    "pressure": 70.0,
+    "mixingRule": "classic",
+    "components": {
+      "methane": 0.88,
+      "ethane": 0.08,
+      "propane": 0.04
+    }
+  },
+  "autoRun": true,
+  "process": [
+    {"type": "Stream", "name": "feed", "properties": {"flowRate": [250000.0, "kg/hr"]}},
+
+    {"type": "Splitter", "name": "Feed Splitter", "inlet": "feed",
+      "properties": {"splitFactors": [0.60, 0.40]}},
+
+    {"type": "Cooler", "name": "Train A Cooler", "inlet": "Feed Splitter.splitStream_0",
+      "properties": {"outTemperature": [20.0, "C"]}},
+
+    {"type": "ThrottlingValve", "name": "Train B Valve", "inlet": "Feed Splitter.splitStream_1",
+      "properties": {"outletPressure": [65.0, "bara"]}},
+
+    {"type": "Mixer", "name": "Combined Mixer",
+      "inlets": ["Train A Cooler.out", "Train B Valve.out"]},
+
+    {"type": "Separator", "name": "HP Sep", "inlet": "Combined Mixer.out"},
+
+    {"type": "Compressor", "name": "Recycle Comp", "inlet": "HP Sep.gasOut",
+      "properties": {"outletPressure": [72.0, "bara"]}},
+
+    {"type": "Recycle", "name": "Gas Recycle", "inlet": "Recycle Comp.out"},
+
+    {"type": "Mixer", "name": "Feed + Recycle",
+      "inlets": ["feed", "Gas Recycle.out"]}
+  ]
+}
+```
+
+## 5. Validation workflow (recommended)
+
+Java:
+
+```java
+String json = ...;
+ProcessJsonValidator.ValidationReport report = ProcessSystem.validateJson(json);
+if (!report.isValid()) {
+  throw new IllegalArgumentException("Invalid process JSON: " + report.getErrors());
+}
+SimulationResult result = ProcessSystem.fromJsonAndRun(json);
+```
+
+Python (via JPype wrapper):
+
+```python
+report = ns.ProcessSystem.validateJson(json_text)
+if not report.isValid():
+    raise ValueError(str(report.getErrors()))
+result = ns.ProcessSystem.fromJsonAndRun(json_text)
+```
+
+## 6. What validator checks today
+
+Errors:
+- invalid JSON
+- missing `process` array
+- missing `type`
+- missing `name`
+- duplicate names
+
+Warnings:
+- inlet/inlets/streams input references that do not resolve to known unit/port names
+
+## 7. ProcessModel lifecycle JSON
+
+For lifecycle snapshots/versioning of full `ProcessModel` and `ProcessSystem` states,
+see:
 
 - `docs/process/lifecycle/process_model_lifecycle.md`
-- `docs/process/README.md`
-- `docs/process/controllers.md`
-- `docs/process/equipment/mixers_splitters.md`
-- `docs/process/equipment/util/recycles.md`
+- `docs/simulation/process_serialization.md`
+
+Builder input JSON (`fromJson`) and lifecycle snapshot JSON (`ProcessModelState`) have different purposes.

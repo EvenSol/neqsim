@@ -134,6 +134,21 @@ The resolver trims surrounding whitespace.
 }
 ```
 
+### 4.1 Optional explicit `connections` metadata
+
+You can include a root-level `connections` array to persist explicit topology metadata.
+These are recorded on `ProcessSystem.getConnections()` and are useful for interchange,
+PFD export, and topology analysis.
+
+```json
+"connections": [
+  {"from": "feed", "to": "Sep", "sourcePort": "outlet", "targetPort": "inlet", "type": "MATERIAL"}
+]
+```
+
+Supported types map to `ProcessConnection.ConnectionType` values (`MATERIAL`, `ENERGY`, `SIGNAL`).
+Unknown types default to `MATERIAL` with a warning.
+
 ## 5. Validation workflow (recommended)
 
 Java:
@@ -266,3 +281,14 @@ Choose the round-trip type by purpose:
 - `ProcessSystem.toJson()/fromJson(...)`: portable builder/execution JSON
 - `ProcessSystemState` / `ProcessModelState`: lifecycle state management JSON
 
+
+
+## 10. Coverage note
+
+Not every possible NeqSim feature is currently expressible in concise JSON form.
+The JSON builder supports the most commonly used process/equipment workflows, and
+coverage continues to evolve. For advanced behavior, you can:
+
+- build core topology from JSON, then refine in Java/Python API calls
+- export back using `process.toJson()` for traceability
+- use lifecycle snapshots (`ProcessSystemState`/`ProcessModelState`) for full-state persistence

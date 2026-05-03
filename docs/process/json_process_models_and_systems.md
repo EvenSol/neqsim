@@ -205,3 +205,64 @@ see:
 - `docs/simulation/process_serialization.md`
 
 Builder input JSON (`fromJson`) and lifecycle snapshot JSON (`ProcessModelState`) have different purposes.
+
+
+## 9. Export and full JSON round-trip workflows
+
+### 9.1 Builder JSON round-trip (ProcessSystem -> JSON -> ProcessSystem)
+
+Use this for interoperability and API payloads.
+
+```java
+// Build or run a process
+ProcessSystem process = ...;
+process.run();
+
+// Export to builder JSON
+String json = process.toJson();
+
+// Rebuild from exported JSON
+SimulationResult rebuilt = ProcessSystem.fromJson(json);
+if (!rebuilt.isSuccess()) {
+  throw new RuntimeException(rebuilt.toString());
+}
+
+// Optional: run rebuilt process
+rebuilt.getProcessSystem().run();
+```
+
+Python pattern:
+
+```python
+json_text = process.toJson()
+rebuild = ns.ProcessSystem.fromJson(json_text)
+if not rebuild.isSuccess():
+    raise RuntimeError(str(rebuild))
+rebuilt_process = rebuild.getProcessSystem()
+rebuilt_process.run()
+```
+
+### 9.2 Lifecycle JSON round-trip (state snapshots)
+
+Use `ProcessSystemState` and `ProcessModelState` for Git-friendly model snapshots,
+versioning, comparison, and lifecycle workflows.
+
+```java
+// Single ProcessSystem snapshot
+ProcessSystemState state = ProcessSystemState.fromProcessSystem(process);
+state.saveToFile("model_state.json");
+ProcessSystemState loaded = ProcessSystemState.loadFromFile("model_state.json");
+ProcessSystem restored = loaded.toProcessSystem();
+
+// Multi-area ProcessModel snapshot
+ProcessModelState modelState = ProcessModelState.fromProcessModel(model);
+modelState.saveToFile("plant_state.json");
+ProcessModelState loadedModelState = ProcessModelState.loadFromFile("plant_state.json");
+ProcessModel restoredModel = loadedModelState.toProcessModel();
+```
+
+Choose the round-trip type by purpose:
+
+- `ProcessSystem.toJson()/fromJson(...)`: portable builder/execution JSON
+- `ProcessSystemState` / `ProcessModelState`: lifecycle state management JSON
+

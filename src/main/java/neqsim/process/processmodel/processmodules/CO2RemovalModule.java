@@ -3,6 +3,8 @@ package neqsim.process.processmodel.processmodules;
 import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import neqsim.process.equipment.absorber.AmineRegenerator;
+import neqsim.process.equipment.absorber.RateBasedAbsorber;
 import neqsim.process.equipment.separator.Separator;
 import neqsim.process.equipment.stream.StreamInterface;
 import neqsim.process.processmodel.ProcessModuleBaseClass;
@@ -22,6 +24,10 @@ public class CO2RemovalModule extends ProcessModuleBaseClass {
   protected StreamInterface streamToAbsorber = null, streamFromAbsorber = null, gasFromCO2Stripper = null;
 
   protected Separator inletSeparator = null;
+
+  protected RateBasedAbsorber absorber = null;
+
+  protected AmineRegenerator regenerator = null;
 
   /**
    * Constructor for CO2RemovalModule.
@@ -88,6 +94,10 @@ public class CO2RemovalModule extends ProcessModuleBaseClass {
     isInitializedModule = true;
     inletSeparator = new Separator("inletSeparator", streamToAbsorber);
 
+    absorber = new RateBasedAbsorber("CO2 rate based absorber");
+    regenerator = new AmineRegenerator("Amine regenerator");
+    absorber.setRegenerator(regenerator);
+
     getOperations().add(inletSeparator);
   }
 
@@ -101,5 +111,29 @@ public class CO2RemovalModule extends ProcessModuleBaseClass {
   @Override
   public void setDesign() {
     // set design is done here
+  }
+
+  /**
+   * Gets the rate-based absorber used by this CO2 removal module.
+   *
+   * @return rate-based absorber
+   */
+  public RateBasedAbsorber getAbsorber() {
+    if (!isInitializedModule) {
+      initializeModule();
+    }
+    return absorber;
+  }
+
+  /**
+   * Gets the amine regenerator used by this CO2 removal module.
+   *
+   * @return amine regenerator
+   */
+  public AmineRegenerator getRegenerator() {
+    if (!isInitializedModule) {
+      initializeModule();
+    }
+    return regenerator;
   }
 }

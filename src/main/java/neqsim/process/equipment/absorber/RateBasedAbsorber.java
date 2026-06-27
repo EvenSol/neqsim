@@ -2,13 +2,17 @@ package neqsim.process.equipment.absorber;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import neqsim.process.equipment.stream.StreamInterface;
 import neqsim.thermo.system.SystemInterface;
 import neqsim.thermodynamicoperations.ThermodynamicOperations;
+import neqsim.thermo.util.amines.AmineHeatOfAbsorption;
 
 /**
  * Rate-based packed column absorber using the two-film model with mass transfer coefficients.
@@ -146,6 +150,12 @@ public class RateBasedAbsorber extends SimpleAbsorber {
   /** Billet-Schultes packing constant CV [-]. */
   private double billetCV = 0.4;
 
+  /** Explicit list of acid-gas components allowed to transfer. */
+  private Set<String> transferableComponents = new LinkedHashSet<String>(Arrays.asList("CO2", "H2S"));
+
+  /** Number of counter-current Picard iterations. */
+  private int solverIterations = 6;
+
   // ======================== Operating parameters ========================
   /** Column operating pressure [Pa]. */
   private double operatingPressure = 101325.0;
@@ -184,6 +194,9 @@ public class RateBasedAbsorber extends SimpleAbsorber {
 
   /** Column cross-sectional area [m2]. */
   private double columnArea = 0.0;
+
+  /** Largest calculated temperature rise relative to lean solvent feed [K]. */
+  private double temperatureBulge = 0.0;
 
   /**
    * Constructor for RateBasedAbsorber.
@@ -367,6 +380,40 @@ public class RateBasedAbsorber extends SimpleAbsorber {
   }
 
   /**
+   * Set the only components allowed to transfer between phases.
+   *
+   * @param componentNames component names, defaults should typically include CO2 and H2S
+   */
+  public void setTransferableComponents(String... componentNames) {
+    transferableComponents.clear();
+    if (componentNames != null) {
+      for (String name : componentNames) {
+        if (name != null && !name.trim().isEmpty()) {
+          transferableComponents.add(name);
+        }
+      }
+    }
+  }
+
+  /**
+   * Get configured transferable components.
+   *
+   * @return copy of transferable component names
+   */
+  public Set<String> getTransferableComponents() {
+    return new LinkedHashSet<String>(transferableComponents);
+  }
+
+  /**
+   * Set number of counter-current solver iterations.
+   *
+   * @param iterations iterations, at least one
+   */
+  public void setSolverIterations(int iterations) {
+    solverIterations = Math.max(1, iterations);
+  }
+
+  /**
    * Get the number of overall gas-phase transfer units.
    *
    * @return NTU value
@@ -413,6 +460,15 @@ public class RateBasedAbsorber extends SimpleAbsorber {
   }
 
   /**
+   * Get the column temperature bulge relative to lean solvent inlet.
+   *
+   * @return temperature bulge in kelvin
+   */
+  public double getTemperatureBulge() {
+    return temperatureBulge;
+  }
+
+  /**
    * Get the stage-by-stage calculation results.
    *
    * @return list of stage results
@@ -432,73 +488,86 @@ public class RateBasedAbsorber extends SimpleAbsorber {
     columnArea = Math.PI / 4.0 * columnDiameter * columnDiameter;
     double stageHeight = packedHeight / getNumberOfStages();
     stageResults.clear();
+    temperatureBulge = 0.0;
 
-    // Clone inlet streams for working copies
-    SystemInterface gasPhase = gasInStream.getThermoSystem().clone();
-    SystemInterface liquidPhase = solventInStream.getThermoSystem().clone();
+    SystemInterface[] gasProfile = new SystemInterface[getNumberOfStages() + 1];
+    SystemInterface[] liquidProfile = new SystemInterface[getNumberOfStages() + 1];
+    gasProfile[0] = initializedClone(gasInStream.getThermoSystem());
+    liquidProfile[getNumberOfStages()] = initializedClone(solventInStream.getThermoSystem());
+    operatingPressure = gasProfile[0].getPressure("Pa");
 
-    // Initialize — flash both to get properties
-    ThermodynamicOperations gasOps = new ThermodynamicOperations(gasPhase);
-    try {
-      gasOps.TPflash();
-    } catch (Exception ex) {
-      logger.error("Gas flash failed", ex);
+    for (int i = 1; i <= getNumberOfStages(); i++) {
+      gasProfile[i] = initializedClone(gasProfile[0]);
     }
-    gasPhase.initProperties();
-
-    ThermodynamicOperations liqOps = new ThermodynamicOperations(liquidPhase);
-    try {
-      liqOps.TPflash();
-    } catch (Exception ex) {
-      logger.error("Liquid flash failed", ex);
+    for (int i = 0; i < getNumberOfStages(); i++) {
+      liquidProfile[i] = initializedClone(liquidProfile[getNumberOfStages()]);
     }
-    liquidPhase.initProperties();
 
-    operatingPressure = gasPhase.getPressure("Pa");
+    for (int iteration = 0; iteration < solverIterations; iteration++) {
+      SystemInterface[] nextGas = new SystemInterface[getNumberOfStages() + 1];
+      SystemInterface[] nextLiquid = new SystemInterface[getNumberOfStages() + 1];
+      nextGas[0] = initializedClone(gasProfile[0]);
+      nextLiquid[getNumberOfStages()] = initializedClone(liquidProfile[getNumberOfStages()]);
+      List<StageResult> iterationResults = new ArrayList<StageResult>();
 
-    // Gas flows upward (stage 1 = bottom, stage N = top)
-    // Liquid flows downward (stage 1 = top, stage N = bottom)
-    // We solve from bottom to top for gas, tracking transferred moles
+      for (int stage = 0; stage < getNumberOfStages(); stage++) {
+        SystemInterface gasIn = initializedClone(nextGas[stage]);
+        SystemInterface liquidIn = initializedClone(liquidProfile[stage + 1]);
+        StageResult result = calculateStage(gasIn, liquidIn, stageHeight, stage);
+        nextGas[stage + 1] = gasIn;
+        nextLiquid[stage] = liquidIn;
+        iterationResults.add(result);
+      }
 
-    double totalMolesTransferred = 0.0;
+      gasProfile = nextGas;
+      liquidProfile = nextLiquid;
+      stageResults = iterationResults;
+    }
+
     double avgKGa = 0.0;
     double avgKLa = 0.0;
     double avgWettedArea = 0.0;
-
-    for (int stage = 0; stage < getNumberOfStages(); stage++) {
-      StageResult result = calculateStage(gasPhase, liquidPhase, stageHeight, stage);
-      stageResults.add(result);
-
-      totalMolesTransferred += result.molesTransferred;
+    double leanTemperature = solventInStream.getThermoSystem().getTemperature();
+    for (StageResult result : stageResults) {
       avgKGa += result.kGa;
       avgKLa += result.kLa;
       avgWettedArea += result.wettedArea;
+      temperatureBulge = Math.max(temperatureBulge, result.temperature - leanTemperature);
     }
 
-    // Average overall coefficients
     overallKGa = avgKGa / getNumberOfStages();
     overallKLa = avgKLa / getNumberOfStages();
     wettedArea = avgWettedArea / getNumberOfStages();
 
-    // Calculate NTU and HTU
     if (overallKGa > 0.0) {
-      double gasVelocity = gasInStream.getFlowRate("kg/hr") / 3600.0 / gasPhase.getDensity("kg/m3") / columnArea;
+      double gasVelocity = gasInStream.getFlowRate("kg/hr") / 3600.0 / gasProfile[0].getDensity("kg/m3") / columnArea;
       heightOfTransferUnit = gasVelocity / overallKGa;
       if (heightOfTransferUnit > 0.0) {
         numberOfTransferUnits = packedHeight / heightOfTransferUnit;
       }
     }
 
-    // Create outlet streams
     gasOutStream = gasInStream.clone();
-    gasOutStream.setThermoSystem(gasPhase);
+    gasOutStream.setThermoSystem(gasProfile[getNumberOfStages()]);
     gasOutStream.setCalculationIdentifier(id);
 
     solventOutStream = solventInStream.clone();
-    solventOutStream.setThermoSystem(liquidPhase);
+    solventOutStream.setThermoSystem(liquidProfile[0]);
     solventOutStream.setCalculationIdentifier(id);
 
     setCalculationIdentifier(id);
+  }
+
+  private SystemInterface initializedClone(SystemInterface source) {
+    SystemInterface clone = source.clone();
+    ThermodynamicOperations ops = new ThermodynamicOperations(clone);
+    try {
+      ops.TPflash();
+    } catch (Exception ex) {
+      logger.warn("Rate-based absorber flash warning: {}", ex.getMessage());
+    }
+    clone.initProperties();
+    return clone;
   }
 
   /**
@@ -534,25 +603,28 @@ public class RateBasedAbsorber extends SimpleAbsorber {
     double uG = gasFlow / (rhoG * columnArea);
     double uL = liquidFlow / (rhoL * columnArea);
 
+    double dG = componentDiffusivity(gasPhase, "CO2", 1.5e-5, true);
+    double dL = componentDiffusivity(liquidPhase, "CO2", 1.5e-9, false);
+
     // Calculate mass transfer coefficients based on selected model
     double kG = 0.0;
     double kL = 0.0;
     double aw = 0.0;
 
     if (massTransferModel == MassTransferModel.ONDA_1968) {
-      double[] ondaResult = calculateOndaMassTransfer(uG, uL, rhoG, rhoL, muG, muL, sigmaL);
+      double[] ondaResult = calculateOndaMassTransfer(uG, uL, rhoG, rhoL, muG, muL, sigmaL, dG, dL);
       kG = ondaResult[0];
       kL = ondaResult[1];
       aw = ondaResult[2];
     } else {
-      double[] billetResult = calculateBilletSchultesMassTransfer(uG, uL, rhoG, rhoL, muG, muL, sigmaL);
+      double[] billetResult = calculateBilletSchultesMassTransfer(uG, uL, rhoG, rhoL, muG, muL, sigmaL, dG, dL);
       kG = billetResult[0];
       kL = billetResult[1];
       aw = billetResult[2];
     }
 
     // Apply enhancement factor for chemical absorption
-    double enhancementFactor = calculateEnhancementFactor(kL, liquidPhase, rhoL, muL);
+    double enhancementFactor = calculateEnhancementFactor(kL, liquidPhase, rhoL, muL, dL);
 
     double kLEnhanced = kL * enhancementFactor;
     result.enhancementFactor = enhancementFactor;
@@ -565,8 +637,8 @@ public class RateBasedAbsorber extends SimpleAbsorber {
     int nComp = gasPhase.getNumberOfComponents();
     for (int i = 0; i < nComp; i++) {
       String compName = gasPhase.getComponent(i).getName();
-      // Check if this component exists in liquid phase
-      if (!liquidPhase.hasComponent(compName)) {
+      // Only explicitly configured acid gases are transferable.
+      if (!transferableComponents.contains(compName) || !liquidPhase.hasComponent(compName)) {
         continue;
       }
 
@@ -588,6 +660,7 @@ public class RateBasedAbsorber extends SimpleAbsorber {
 
       // Overall driving force (gas-side)
       double drivingForce = yBulk - yEquil;
+      result.approachToEquilibrium = drivingForce;
       if (Math.abs(drivingForce) < 1e-15) {
         continue;
       }
@@ -607,7 +680,6 @@ public class RateBasedAbsorber extends SimpleAbsorber {
       // Total moles transferred in this stage
       double interfacialArea = aw * columnArea * stageHeight;
       double molesTransferred = flux * interfacialArea;
-      totalMolesTransferred += Math.abs(molesTransferred);
 
       // Update compositions: remove from gas, add to liquid
       if (molesTransferred > 0) {
@@ -617,11 +689,14 @@ public class RateBasedAbsorber extends SimpleAbsorber {
         if (actualTransfer > 1e-20) {
           gasPhase.addComponent(i, -actualTransfer);
           liquidPhase.addComponent(liqIndex, actualTransfer);
+          totalMolesTransferred += actualTransfer;
+          result.heatReleased += calculateHeatReleased(compName, actualTransfer, liquidPhase);
         }
       }
     }
 
     result.molesTransferred = totalMolesTransferred;
+    applyTemperatureRise(gasPhase, liquidPhase, result.heatReleased);
 
     // Re-flash both phases after composition update
     ThermodynamicOperations gasOps = new ThermodynamicOperations(gasPhase);
@@ -639,6 +714,12 @@ public class RateBasedAbsorber extends SimpleAbsorber {
       logger.warn("Stage {} liquid flash warning: {}", stageIndex, ex.getMessage());
     }
     liquidPhase.initProperties();
+
+    result.temperature = 0.5 * (gasPhase.getTemperature() + liquidPhase.getTemperature());
+    result.loading = calculateLoading(liquidPhase);
+    if (gasPhase.hasComponent("CO2")) {
+      result.co2MoleFraction = gasPhase.getPhase(0).getComponent("CO2").getx();
+    }
 
     return result;
   }
@@ -666,15 +747,11 @@ public class RateBasedAbsorber extends SimpleAbsorber {
    * @return array [kG, kL, aw] where kG in [mol/(m2.s.Pa)], kL in [m/s], aw in [m2/m3]
    */
   private double[] calculateOndaMassTransfer(double uG, double uL, double rhoG, double rhoL, double muG, double muL,
-      double sigmaL) {
+      double sigmaL, double dG, double dL) {
     double g = 9.81;
     double ap = packingSpecificArea;
     double dp = packingNominalSize;
     double sigmaC = packingCriticalSurfaceTension;
-
-    // Typical diffusivities
-    double dG = 1.5e-5; // Gas diffusivity [m2/s]
-    double dL = 1.5e-9; // Liquid diffusivity [m2/s]
 
     // Reynolds numbers
     double reG = uG * rhoG / (muG * ap);
@@ -727,12 +804,10 @@ public class RateBasedAbsorber extends SimpleAbsorber {
    * @return array [kG, kL, aw] where kG in [m/s], kL in [m/s], aw in [m2/m3]
    */
   private double[] calculateBilletSchultesMassTransfer(double uG, double uL, double rhoG, double rhoL, double muG,
-      double muL, double sigmaL) {
+      double muL, double sigmaL, double dG, double dL) {
     double g = 9.81;
     double ap = packingSpecificArea;
     double eps = packingVoidFraction;
-    double dG = 1.5e-5;
-    double dL = 1.5e-9;
 
     // Effective velocity
     double uGe = uG / (eps * (1 - calculateLiquidHoldup(uL, rhoL, muL)));
@@ -792,19 +867,18 @@ public class RateBasedAbsorber extends SimpleAbsorber {
    * @param muL liquid viscosity [Pa.s]
    * @return enhancement factor E [-]
    */
-  private double calculateEnhancementFactor(double kL, SystemInterface liquidPhase, double rhoL, double muL) {
+  private double calculateEnhancementFactor(double kL, SystemInterface liquidPhase, double rhoL, double muL, double dL) {
     if (enhancementModel == EnhancementModel.NONE || reactionRateConstant <= 0.0) {
       return 1.0;
     }
 
-    double dL = 1.5e-9; // Liquid diffusivity [m2/s]
-    double dB = 1.0e-9; // Reactant diffusivity [m2/s]
+    double dB = componentDiffusivity(liquidPhase, dominantAmineName(liquidPhase), 1.0e-9, false);
 
     if (enhancementModel == EnhancementModel.HATTA_PSEUDO_FIRST_ORDER) {
       // Pseudo-first-order: Ha = sqrt(k2 * C_B * D_A) / kL
       // E = Ha / tanh(Ha)
-      double cB = rhoL / 0.1; // Approximate reactant concentration [mol/m3]
-      double ha = Math.sqrt(reactionRateConstant * cB * dL) / Math.max(kL, 1e-10);
+      double cB = calculateReactantConcentration(liquidPhase);
+      double ha = Math.sqrt(reactionRateConstant * amineKineticMultiplier(liquidPhase) * cB * dL) / Math.max(kL, 1e-10);
       if (ha < 0.3) {
         return 1.0; // Slow reaction regime
       }
@@ -813,8 +887,8 @@ public class RateBasedAbsorber extends SimpleAbsorber {
 
     if (enhancementModel == EnhancementModel.VAN_KREVELEN_HOFTIJZER) {
       // Van Krevelen-Hoftijzer for finite reactant
-      double cB = rhoL / 0.1;
-      double ha = Math.sqrt(reactionRateConstant * cB * dL) / Math.max(kL, 1e-10);
+      double cB = calculateReactantConcentration(liquidPhase);
+      double ha = Math.sqrt(reactionRateConstant * amineKineticMultiplier(liquidPhase) * cB * dL) / Math.max(kL, 1e-10);
       // E_inf = 1 + (D_B/D_A) * (C_B / (nu * C_Ai))
       double eInf = 1.0 + (dB / dL) * cB / (stoichiometricRatio * 1.0);
       eInf = Math.max(eInf, 1.0);
@@ -825,6 +899,125 @@ public class RateBasedAbsorber extends SimpleAbsorber {
     }
 
     return 1.0;
+  }
+
+
+  private double componentDiffusivity(SystemInterface system, String component, double fallback, boolean gasPhase) {
+    if (component == null || !system.hasComponent(component)) {
+      return fallback;
+    }
+    try {
+      int componentIndex = system.getPhase(0).getComponent(component).getComponentNumber();
+      double value = system.getPhase(0).getPhysicalProperties().getEffectiveDiffusionCoefficient(componentIndex);
+      if (value > 0.0 && Double.isFinite(value)) {
+        return value;
+      }
+    } catch (RuntimeException ex) {
+      logger.debug("Using fallback {} diffusivity for {}: {}", gasPhase ? "gas" : "liquid", component,
+          ex.getMessage());
+    }
+    return fallback;
+  }
+
+  private double calculateReactantConcentration(SystemInterface liquidPhase) {
+    double amineMoles = 0.0;
+    String[] amines = new String[] { "MEA", "DEA", "MDEA", "PZ", "piperazine", "aMDEA" };
+    for (String amine : amines) {
+      if (liquidPhase.hasComponent(amine)) {
+        amineMoles += liquidPhase.getComponent(amine).getNumberOfmoles();
+      }
+    }
+    double volume = Math.max(liquidPhase.getVolume("m3"), 1.0e-12);
+    return Math.max(amineMoles / volume, 1.0e-9);
+  }
+
+  private String dominantAmineName(SystemInterface liquidPhase) {
+    String dominant = "water";
+    double maxMoles = 0.0;
+    String[] amines = new String[] { "MEA", "DEA", "MDEA", "PZ", "piperazine", "aMDEA" };
+    for (String amine : amines) {
+      if (liquidPhase.hasComponent(amine)) {
+        double moles = liquidPhase.getComponent(amine).getNumberOfmoles();
+        if (moles > maxMoles) {
+          maxMoles = moles;
+          dominant = amine;
+        }
+      }
+    }
+    return dominant;
+  }
+
+  private double amineKineticMultiplier(SystemInterface liquidPhase) {
+    if (liquidPhase.hasComponent("MEA")) {
+      return 8.0;
+    }
+    if (liquidPhase.hasComponent("DEA")) {
+      return 4.0;
+    }
+    if (liquidPhase.hasComponent("PZ") || liquidPhase.hasComponent("piperazine") || liquidPhase.hasComponent("aMDEA")) {
+      return 12.0;
+    }
+    if (liquidPhase.hasComponent("MDEA")) {
+      return 1.0;
+    }
+    return 0.0;
+  }
+
+  private double calculateHeatReleased(String componentName, double molesTransferred, SystemInterface liquidPhase) {
+    if (molesTransferred <= 0.0) {
+      return 0.0;
+    }
+    if ("CO2".equals(componentName) || "H2S".equals(componentName)) {
+      AmineHeatOfAbsorption heat = new AmineHeatOfAbsorption(resolveAmineType(liquidPhase), calculateAmineMassFraction(liquidPhase),
+          calculateLoading(liquidPhase), liquidPhase.getTemperature());
+      double heatKjPerMol = "H2S".equals(componentName) ? heat.calcHeatOfAbsorptionH2S() : heat.calcHeatOfAbsorptionCO2();
+      return Math.abs(heatKjPerMol) * 1000.0 * molesTransferred;
+    }
+    return 0.0;
+  }
+
+  private AmineHeatOfAbsorption.AmineType resolveAmineType(SystemInterface liquidPhase) {
+    if (liquidPhase.hasComponent("MEA")) {
+      return AmineHeatOfAbsorption.AmineType.MEA;
+    }
+    if (liquidPhase.hasComponent("DEA")) {
+      return AmineHeatOfAbsorption.AmineType.DEA;
+    }
+    if (liquidPhase.hasComponent("PZ") || liquidPhase.hasComponent("piperazine") || liquidPhase.hasComponent("aMDEA")) {
+      return AmineHeatOfAbsorption.AmineType.AMDEA;
+    }
+    return AmineHeatOfAbsorption.AmineType.MDEA;
+  }
+
+  private double calculateAmineMassFraction(SystemInterface liquidPhase) {
+    double amineMass = 0.0;
+    String[] amines = new String[] { "MEA", "DEA", "MDEA", "PZ", "piperazine", "aMDEA" };
+    for (String amine : amines) {
+      if (liquidPhase.hasComponent(amine)) {
+        amineMass += liquidPhase.getComponent(amine).getNumberOfmoles() * liquidPhase.getComponent(amine).getMolarMass();
+      }
+    }
+    double totalMass = Math.max(liquidPhase.getMass("kg"), 1.0e-12);
+    return Math.max(0.0, Math.min(0.9, amineMass / totalMass));
+  }
+
+  private double calculateLoading(SystemInterface liquidPhase) {
+    double acidMoles = 0.0;
+    if (liquidPhase.hasComponent("CO2")) {
+      acidMoles += liquidPhase.getComponent("CO2").getNumberOfmoles();
+    }
+    double amineMoles = Math.max(calculateReactantConcentration(liquidPhase) * liquidPhase.getVolume("m3"), 1.0e-12);
+    return acidMoles / amineMoles;
+  }
+
+  private void applyTemperatureRise(SystemInterface gasPhase, SystemInterface liquidPhase, double heatReleased) {
+    if (heatReleased <= 0.0) {
+      return;
+    }
+    double cp = Math.max(Math.abs(gasPhase.getCp()) + Math.abs(liquidPhase.getCp()), 1.0e3);
+    double deltaT = Math.min(25.0, heatReleased / cp);
+    gasPhase.setTemperature(gasPhase.getTemperature() + deltaT);
+    liquidPhase.setTemperature(liquidPhase.getTemperature() + deltaT);
   }
 
   /**
@@ -857,6 +1050,18 @@ public class RateBasedAbsorber extends SimpleAbsorber {
 
     /** Total moles transferred in this stage [mol/s]. */
     public double molesTransferred;
+
+    /** Heat released in this stage [W]. */
+    public double heatReleased;
+
+    /** CO2 mole fraction in exiting gas [-]. */
+    public double co2MoleFraction;
+
+    /** CO2 loading in exiting liquid [mol/mol amine]. */
+    public double loading;
+
+    /** Approach to equilibrium y-y* [-]. */
+    public double approachToEquilibrium;
 
     /**
      * Get the stage number.
@@ -928,6 +1133,22 @@ public class RateBasedAbsorber extends SimpleAbsorber {
      */
     public double getMolesTransferred() {
       return molesTransferred;
+    }
+
+    public double getHeatReleased() {
+      return heatReleased;
+    }
+
+    public double getCo2MoleFraction() {
+      return co2MoleFraction;
+    }
+
+    public double getLoading() {
+      return loading;
+    }
+
+    public double getApproachToEquilibrium() {
+      return approachToEquilibrium;
     }
   }
 }

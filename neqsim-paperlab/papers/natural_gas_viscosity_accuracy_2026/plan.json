@@ -1,0 +1,53 @@
+{
+  "title": "Accuracy of natural-gas viscosity models across composition and pressure regimes",
+  "paper_type": "characterization",
+  "journal": "fluid_phase_equilibria",
+  "novelty_statement": "First PaperLab-style open benchmark in this repo for natural-gas viscosity model-path accuracy with reproducible data artifacts and traceable metrics.",
+  "research_questions": [
+    {
+      "id": "RQ1",
+      "question": "How does viscosity error vary between SRK and PR model paths across lean, rich, and acid-gas cases?",
+      "hypothesis": "PR path gives lower AARD than SRK on this literature-derived dataset.",
+      "method": "Compute viscosity for each literature point with matched composition, T, and P; evaluate AARD and bias.",
+      "acceptance_criterion": "All metrics stored in results/benchmark_summary.json and discussed in paper.md."
+    },
+    {
+      "id": "RQ2",
+      "question": "Are errors regime-dependent rather than globally uniform?",
+      "hypothesis": "Error magnitude increases for richer/acid-gas points.",
+      "method": "Tag cases by regime in data/literature_dataset.csv and compare signed residuals.",
+      "acceptance_criterion": "Regime-level error discussion included in manuscript section 5."
+    }
+  ],
+  "deliverables": [
+    "paper.md",
+    "data/literature_dataset.csv",
+    "results/benchmark_point_results.csv",
+    "results/benchmark_summary.json",
+    "step2_analysis/01_viscosity_benchmark.ipynb",
+    "refs.bib"
+  ],
+  "workflow_log": [
+    {
+      "stage": "iterate",
+      "status": "checked",
+      "date": "2026-05-01T15:05:01.969467",
+      "score_pct": 84.6,
+      "issues": 2
+    },
+    {
+      "stage": "iterate",
+      "status": "checked",
+      "date": "2026-05-01T15:05:10.983720",
+      "score_pct": 92.3,
+      "issues": 1
+    },
+    {
+      "stage": "iterate",
+      "status": "checked",
+      "date": "2026-05-01T15:05:19.861492",
+      "score_pct": 100.0,
+      "issues": 0
+    }
+  ]
+}

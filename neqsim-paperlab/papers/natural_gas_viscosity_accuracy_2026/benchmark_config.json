@@ -1,0 +1,9 @@
+{
+  "dataset": "data/literature_dataset.csv",
+  "target_property": "gas_viscosity",
+  "target_unit": "uPa_s",
+  "model_paths": ["srk", "pr"],
+  "metrics": ["aard_pct", "mean_bias_pct", "max_abs_error_pct"],
+  "regimes": ["lean", "rich", "acid_gas"],
+  "notes": "Configuration for reproducible PaperLab benchmark runs; notebook currently demonstrates workflow and metric reporting."
+}

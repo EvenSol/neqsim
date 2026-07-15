@@ -118,4 +118,73 @@ public class RateBasedAbsorberTest {
     absorber.setEnhancementModel(RateBasedAbsorber.EnhancementModel.HATTA_PSEUDO_FIRST_ORDER);
     // No getter for enhancement model, but this shouldn't throw
   }
+
+  private RateBasedAbsorber createCaptureAbsorber(double height, double solventRate, double k2) {
+    SystemInterface gasFluid = new SystemSrkEos(273.15 + 40.0, 50.0);
+    gasFluid.addComponent("methane", 0.90);
+    gasFluid.addComponent("CO2", 0.10);
+    gasFluid.setMixingRule("classic");
+    Stream gasIn = new Stream("gas in sensitivity", gasFluid);
+    gasIn.setFlowRate(10000.0, "kg/hr");
+    gasIn.run();
+
+    SystemInterface solventFluid = new SystemSrkEos(273.15 + 30.0, 50.0);
+    solventFluid.addComponent("water", 0.80);
+    solventFluid.addComponent("MDEA", 0.20);
+    solventFluid.addComponent("CO2", 1.0e-8);
+    solventFluid.setMixingRule("classic");
+    Stream solventIn = new Stream("solvent in sensitivity", solventFluid);
+    solventIn.setFlowRate(solventRate, "kg/hr");
+    solventIn.run();
+
+    RateBasedAbsorber absorber = new RateBasedAbsorber("capture absorber");
+    absorber.addGasInStream(gasIn);
+    absorber.addSolventInStream(solventIn);
+    absorber.setColumnDiameter(1.2);
+    absorber.setPackedHeight(height);
+    absorber.setPackingSpecificArea(250.0);
+    absorber.setNumberOfStages(8);
+    absorber.setReactionRateConstant(k2);
+    absorber.setEnhancementModel(RateBasedAbsorber.EnhancementModel.HATTA_PSEUDO_FIRST_ORDER);
+    absorber.setTransferableComponents("CO2");
+    return absorber;
+  }
+
+  @Test
+  public void testCaptureGradeProfilesAndMonotonicRemoval() {
+    RateBasedAbsorber absorber = createCaptureAbsorber(8.0, 25000.0, 20.0);
+    absorber.run();
+
+    double inletCo2 = 0.10;
+    double outletCo2 = absorber.getGasOutStream().getThermoSystem().getPhase(0).getComponent("CO2").getx();
+    Assertions.assertTrue(outletCo2 < inletCo2, "CO2 should be removed from the gas");
+    Assertions.assertTrue(absorber.getTemperatureBulge() > 0.0, "Exothermic absorption should create a temperature bulge");
+    Assertions.assertTrue(absorber.getStageResults().get(0).getKGa() > 0.0, "KGa profile should be populated");
+    Assertions.assertTrue(absorber.getStageResults().get(0).getKLa() > 0.0, "KLa profile should be populated");
+    Assertions.assertTrue(absorber.getStageResults().get(0).getEnhancementFactor() > 1.0,
+        "Reactive solvent should enhance liquid-film absorption");
+    Assertions.assertTrue(absorber.getStageResults().get(absorber.getStageResults().size() - 1).getCo2MoleFraction()
+        <= inletCo2, "CO2 profile should not increase above feed concentration");
+  }
+
+  @Test
+  public void testSensitivityToHeightSolventRateAndEnhancement() {
+    RateBasedAbsorber base = createCaptureAbsorber(5.0, 18000.0, 10.0);
+    base.run();
+    RateBasedAbsorber taller = createCaptureAbsorber(10.0, 18000.0, 10.0);
+    taller.run();
+    RateBasedAbsorber moreSolvent = createCaptureAbsorber(5.0, 30000.0, 10.0);
+    moreSolvent.run();
+    RateBasedAbsorber fasterReaction = createCaptureAbsorber(5.0, 18000.0, 50.0);
+    fasterReaction.run();
+
+    double baseCo2 = base.getGasOutStream().getThermoSystem().getPhase(0).getComponent("CO2").getx();
+    Assertions.assertTrue(taller.getGasOutStream().getThermoSystem().getPhase(0).getComponent("CO2").getx() < baseCo2,
+        "More packing height should increase CO2 removal");
+    Assertions.assertNotEquals(base.getOverallKLa(), moreSolvent.getOverallKLa(), 1.0e-12,
+        "Changing solvent rate should change the liquid-side transfer profile");
+    Assertions.assertTrue(fasterReaction.getStageResults().get(0).getEnhancementFactor()
+        > base.getStageResults().get(0).getEnhancementFactor(), "Higher reaction rate should increase enhancement");
+  }
+
 }

@@ -214,21 +214,30 @@ public class DexpiXmlReaderTest extends NeqSimTest {
   @Test
   public void testReadWithDiagnosticsIncludesValidInstrumentationInventory() throws Exception {
     String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<PlantModel>"
-        + "<Nozzle ID=\"N-SENSE\"/><Nozzle ID=\"N-ACT\"/><FinalControlElement ID=\"V-100\"/>"
-        + "<ProcessInstrumentationFunction ComponentClass=\"ProcessInstrumentationFunction\" ID=\"PIF-PT-100\">"
-        + instrumentAttributes("PT-100", "P", "T", "100")
+        + "<Nozzle ID=\"N-SENSE\" ComponentClass=\"Nozzle\" ComponentName=\"SenseNozzleShape\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagNameAssignmentClass\" Value=\"NS-100\"/>"
+        + "</GenericAttributes></Nozzle>"
+        + "<Nozzle ID=\"N-ACT\" ComponentClass=\"Nozzle\" ComponentName=\"NozzleShape\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagName\" Value=\"NZ-100\"/></GenericAttributes></Nozzle>"
+        + "<FinalControlElement ID=\"V-100\" ComponentClass=\"GateValve\" ComponentName=\"GateValveShape\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagName\" Value=\"XV-100\"/></GenericAttributes>"
+        + "</FinalControlElement>" + "<ProcessInstrumentationFunction ComponentClass=\"ProcessInstrumentationFunction\""
+        + " ComponentName=\"TransmitterShape\" ID=\"PIF-PT-100\">" + instrumentAttributes("PT-100", "P", "T", "100")
         + "<InformationFlow ComponentClass=\"MeasuringLineFunction\" ID=\"MLF-100\">"
         + "<Association Type=\"has logical start\" ItemID=\"PSGF-100\"/>"
         + "<Association Type=\"has logical end\" ItemID=\"PIF-PT-100\"/>"
         + "<Association Type=\"is attached to\" ItemID=\"N-SENSE\"/>" + "</InformationFlow>"
-        + "<ProcessSignalGeneratingFunction ComponentClass=\"ProcessSignalGeneratingFunction\" ID=\"PSGF-100\"/>"
-        + "</ProcessInstrumentationFunction>"
-        + "<ProcessInstrumentationFunction ComponentClass=\"ProcessControlFunction\" ID=\"PIF-PC-100\">"
-        + instrumentAttributes("PC-100", "P", "C", "100")
+        + "<ProcessSignalGeneratingFunction ComponentClass=\"ProcessSignalGeneratingFunction\""
+        + " ComponentName=\"PressureSignalShape\" ID=\"PSGF-100\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagName\" Value=\"PSGF-100-TAG\"/>"
+        + "</GenericAttributes></ProcessSignalGeneratingFunction>" + "</ProcessInstrumentationFunction>"
+        + "<ProcessInstrumentationFunction ComponentClass=\"ProcessControlFunction\""
+        + " ComponentName=\"ControllerShape\" ID=\"PIF-PC-100\">" + instrumentAttributes("PC-100", "P", "C", "100")
         + signalFlow("SIG-MEASURED", "PIF-PT-100", "PIF-PC-100", "ElectricalSignalConveying")
-        + "<ActuatingFunction ComponentClass=\"ActuatingFunction\" ID=\"AF-100\">"
+        + "<ActuatingFunction ComponentClass=\"ActuatingFunction\" ComponentName=\"ActuatorShape\" ID=\"AF-100\">"
         + "<GenericAttributes><GenericAttribute Name=\"ActuatingFunctionNumberAssignmentClass\" Value=\"PC-100\"/>"
         + "<GenericAttribute Name=\"FinalControlElementID\" Value=\"V-100\"/>"
+        + "<GenericAttribute Name=\"TagName\" Value=\"AF-100-TAG\"/>"
         + "</GenericAttributes><Association Type=\"is located in\" ItemID=\"N-ACT\"/>" + "</ActuatingFunction>"
         + signalFlow("SIG-ACTUATE", "PIF-PC-100", "AF-100", "PneumaticSignalConveying")
         + "</ProcessInstrumentationFunction>"
@@ -257,11 +266,23 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("InstrumentationLoopFunction", loop.getComponentClass());
     assertEquals("100", loop.getLoopNumber());
     assertEquals(3, loop.getMembers().size());
-    assertEquals("PIF-PT-100", loop.getMembers().get(0).getMemberId());
-    assertTrue(loop.getMembers().get(0).isResolved());
-    assertEquals("ProcessInstrumentationFunction", loop.getMembers().get(0).getElementName());
-    assertEquals("PIF-PC-100", loop.getMembers().get(1).getMemberId());
-    assertEquals("PIF-PC-100", loop.getMembers().get(2).getMemberId());
+    DexpiInstrumentationLoopInfo.Member transmitterMember = loop.getMembers().get(0);
+    assertEquals("PIF-PT-100", transmitterMember.getMemberId());
+    assertTrue(transmitterMember.isResolved());
+    assertEquals("ProcessInstrumentationFunction", transmitterMember.getElementName());
+    assertEquals("ProcessInstrumentationFunction", transmitterMember.getMemberComponentClass());
+    assertEquals("TransmitterShape", transmitterMember.getMemberComponentName());
+    assertEquals("PT-100", transmitterMember.getMemberTagName());
+    DexpiInstrumentationLoopInfo.Member firstControllerMember = loop.getMembers().get(1);
+    assertEquals("PIF-PC-100", firstControllerMember.getMemberId());
+    assertEquals("ProcessControlFunction", firstControllerMember.getMemberComponentClass());
+    assertEquals("ControllerShape", firstControllerMember.getMemberComponentName());
+    assertEquals("PC-100", firstControllerMember.getMemberTagName());
+    DexpiInstrumentationLoopInfo.Member repeatedControllerMember = loop.getMembers().get(2);
+    assertEquals("PIF-PC-100", repeatedControllerMember.getMemberId());
+    assertEquals("ProcessControlFunction", repeatedControllerMember.getMemberComponentClass());
+    assertEquals("ControllerShape", repeatedControllerMember.getMemberComponentName());
+    assertEquals("PC-100", repeatedControllerMember.getMemberTagName());
     assertThrows(UnsupportedOperationException.class, () -> instrumentationLoops.clear());
     assertThrows(UnsupportedOperationException.class, () -> loop.getMembers().clear());
 
@@ -278,9 +299,15 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("V-100", actuatingFunction.getFinalControlElementId());
     assertTrue(actuatingFunction.isFinalControlElementResolved());
     assertEquals("FinalControlElement", actuatingFunction.getFinalControlElementName());
+    assertEquals("GateValve", actuatingFunction.getFinalControlElementComponentClass());
+    assertEquals("GateValveShape", actuatingFunction.getFinalControlElementComponentName());
+    assertEquals("XV-100", actuatingFunction.getFinalControlElementTagName());
     assertEquals("N-ACT", actuatingFunction.getLocationId());
     assertTrue(actuatingFunction.isLocationResolved());
     assertEquals("Nozzle", actuatingFunction.getLocationElementName());
+    assertEquals("Nozzle", actuatingFunction.getLocationComponentClass());
+    assertEquals("NozzleShape", actuatingFunction.getLocationComponentName());
+    assertEquals("NZ-100", actuatingFunction.getLocationTagName());
     assertThrows(UnsupportedOperationException.class, () -> actuatingFunctions.clear());
 
     List<DexpiInformationFlowInfo> informationFlows = first.getInformationFlows();
@@ -291,13 +318,22 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("PSGF-100", measuring.getSourceId());
     assertTrue(measuring.isSourceResolved());
     assertEquals("ProcessSignalGeneratingFunction", measuring.getSourceElementName());
+    assertEquals("ProcessSignalGeneratingFunction", measuring.getSourceComponentClass());
+    assertEquals("PressureSignalShape", measuring.getSourceComponentName());
+    assertEquals("PSGF-100-TAG", measuring.getSourceTagName());
     assertEquals("PIF-PT-100", measuring.getTargetId());
     assertTrue(measuring.isTargetResolved());
     assertEquals("ProcessInstrumentationFunction", measuring.getTargetElementName());
+    assertEquals("ProcessInstrumentationFunction", measuring.getTargetComponentClass());
+    assertEquals("TransmitterShape", measuring.getTargetComponentName());
+    assertEquals("PT-100", measuring.getTargetTagName());
     assertTrue(measuring.hasAttachment());
     assertEquals("N-SENSE", measuring.getAttachmentId());
     assertTrue(measuring.isAttachmentResolved());
     assertEquals("Nozzle", measuring.getAttachmentElementName());
+    assertEquals("Nozzle", measuring.getAttachmentComponentClass());
+    assertEquals("SenseNozzleShape", measuring.getAttachmentComponentName());
+    assertEquals("NS-100", measuring.getAttachmentTagName());
     assertEquals("", measuring.getSignalConveyingType());
 
     DexpiInformationFlowInfo measuredSignal = informationFlows.get(1);
@@ -306,10 +342,19 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("PIF-PT-100", measuredSignal.getSourceId());
     assertTrue(measuredSignal.isSourceResolved());
     assertEquals("ProcessInstrumentationFunction", measuredSignal.getSourceElementName());
+    assertEquals("ProcessInstrumentationFunction", measuredSignal.getSourceComponentClass());
+    assertEquals("TransmitterShape", measuredSignal.getSourceComponentName());
+    assertEquals("PT-100", measuredSignal.getSourceTagName());
     assertEquals("PIF-PC-100", measuredSignal.getTargetId());
     assertTrue(measuredSignal.isTargetResolved());
     assertEquals("ProcessInstrumentationFunction", measuredSignal.getTargetElementName());
+    assertEquals("ProcessControlFunction", measuredSignal.getTargetComponentClass());
+    assertEquals("ControllerShape", measuredSignal.getTargetComponentName());
+    assertEquals("PC-100", measuredSignal.getTargetTagName());
     assertFalse(measuredSignal.hasAttachment());
+    assertEquals("", measuredSignal.getAttachmentComponentClass());
+    assertEquals("", measuredSignal.getAttachmentComponentName());
+    assertEquals("", measuredSignal.getAttachmentTagName());
     assertEquals("ElectricalSignalConveying", measuredSignal.getSignalConveyingType());
 
     DexpiInformationFlowInfo actuatingSignal = informationFlows.get(2);
@@ -317,6 +362,9 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("AF-100", actuatingSignal.getTargetId());
     assertTrue(actuatingSignal.isTargetResolved());
     assertEquals("ActuatingFunction", actuatingSignal.getTargetElementName());
+    assertEquals("ActuatingFunction", actuatingSignal.getTargetComponentClass());
+    assertEquals("ActuatorShape", actuatingSignal.getTargetComponentName());
+    assertEquals("AF-100-TAG", actuatingSignal.getTargetTagName());
     assertEquals("PneumaticSignalConveying", actuatingSignal.getSignalConveyingType());
     assertThrows(UnsupportedOperationException.class, () -> informationFlows.clear());
 
@@ -325,10 +373,17 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertTrue(first.toJson().contains("\"instrumentCount\": 2"));
     assertTrue(first.toJson().contains("\"instrumentationLoopCount\": 1"));
     assertTrue(first.toJson().contains("\"memberCount\": 3"));
+    assertTrue(first.toJson().contains("\"memberComponentName\": \"TransmitterShape\""));
+    assertTrue(first.toJson().contains("\"memberTagName\": \"PT-100\""));
     assertTrue(first.toJson().contains("\"actuatingFunctionCount\": 1"));
     assertTrue(first.toJson().contains("\"finalControlElementResolved\": true"));
+    assertTrue(first.toJson().contains("\"finalControlElementTagName\": \"XV-100\""));
+    assertTrue(first.toJson().contains("\"locationTagName\": \"NZ-100\""));
     assertTrue(first.toJson().contains("\"informationFlowCount\": 3"));
     assertTrue(first.toJson().contains("\"kind\": \"MEASURING_LINE\""));
+    assertTrue(first.toJson().contains("\"sourceComponentName\": \"PressureSignalShape\""));
+    assertTrue(first.toJson().contains("\"targetTagName\": \"PT-100\""));
+    assertTrue(first.toJson().contains("\"attachmentTagName\": \"NS-100\""));
     assertTrue(first.toJson().contains("\"signalConveyingType\": \"ElectricalSignalConveying\""));
     assertEquals(first.toJson(), second.toJson());
   }
@@ -364,6 +419,9 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("UNKNOWN-MEMBER", loop.getMembers().get(0).getMemberId());
     assertFalse(loop.getMembers().get(0).isResolved());
     assertEquals("", loop.getMembers().get(0).getElementName());
+    assertEquals("", loop.getMembers().get(0).getMemberComponentClass());
+    assertEquals("", loop.getMembers().get(0).getMemberComponentName());
+    assertEquals("", loop.getMembers().get(0).getMemberTagName());
     List<DexpiActuatingFunctionInfo> actuatingFunctions = first.getActuatingFunctions();
     assertEquals(1, actuatingFunctions.size());
     DexpiActuatingFunctionInfo actuatingFunction = actuatingFunctions.get(0);
@@ -376,9 +434,15 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("UNKNOWN-FINAL", actuatingFunction.getFinalControlElementId());
     assertFalse(actuatingFunction.isFinalControlElementResolved());
     assertEquals("", actuatingFunction.getFinalControlElementName());
+    assertEquals("", actuatingFunction.getFinalControlElementComponentClass());
+    assertEquals("", actuatingFunction.getFinalControlElementComponentName());
+    assertEquals("", actuatingFunction.getFinalControlElementTagName());
     assertEquals("", actuatingFunction.getLocationId());
     assertFalse(actuatingFunction.isLocationResolved());
     assertEquals("", actuatingFunction.getLocationElementName());
+    assertEquals("", actuatingFunction.getLocationComponentClass());
+    assertEquals("", actuatingFunction.getLocationComponentName());
+    assertEquals("", actuatingFunction.getLocationTagName());
 
     assertDiagnostic(first, "DEXPI_IMPORT_INSTRUMENT_ID_MISSING");
     assertDiagnostic(first, "DEXPI_IMPORT_INSTRUMENT_FUNCTION_METADATA_MISSING");
@@ -404,18 +468,33 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals(DexpiInformationFlowInfo.Kind.MEASURING_LINE, measuring.getKind());
     assertEquals("", measuring.getSourceId());
     assertFalse(measuring.isSourceResolved());
+    assertEquals("", measuring.getSourceComponentClass());
+    assertEquals("", measuring.getSourceComponentName());
+    assertEquals("", measuring.getSourceTagName());
     assertEquals("UNKNOWN-INSTRUMENT", measuring.getTargetId());
     assertFalse(measuring.isTargetResolved());
+    assertEquals("", measuring.getTargetComponentClass());
+    assertEquals("", measuring.getTargetComponentName());
+    assertEquals("", measuring.getTargetTagName());
     assertFalse(measuring.hasAttachment());
     assertFalse(measuring.isAttachmentResolved());
+    assertEquals("", measuring.getAttachmentComponentClass());
+    assertEquals("", measuring.getAttachmentComponentName());
+    assertEquals("", measuring.getAttachmentTagName());
 
     DexpiInformationFlowInfo signal = informationFlows.get(1);
     assertEquals("SIG-BROKEN", signal.getId());
     assertEquals(DexpiInformationFlowInfo.Kind.SIGNAL_LINE, signal.getKind());
     assertEquals("UNKNOWN-SOURCE", signal.getSourceId());
     assertFalse(signal.isSourceResolved());
+    assertEquals("", signal.getSourceComponentClass());
+    assertEquals("", signal.getSourceComponentName());
+    assertEquals("", signal.getSourceTagName());
     assertEquals("", signal.getTargetId());
     assertFalse(signal.isTargetResolved());
+    assertEquals("", signal.getTargetComponentClass());
+    assertEquals("", signal.getTargetComponentName());
+    assertEquals("", signal.getTargetTagName());
     assertEquals("", signal.getSignalConveyingType());
 
     assertTrue(first.hasLosses());
@@ -429,7 +508,11 @@ public class DexpiXmlReaderTest extends NeqSimTest {
   @Test
   public void testReadWithDiagnosticsPreservesActuatingElectricalFunctionKind() throws Exception {
     String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<PlantModel>"
-        + "<Nozzle ID=\"N-ELECTRICAL\"/><FinalControlElement ID=\"M-200\"/>"
+        + "<Nozzle ID=\"N-ELECTRICAL\" ComponentClass=\"Nozzle\" ComponentName=\"MotorNozzle\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagName\" Value=\"NZ-200\"/></GenericAttributes></Nozzle>"
+        + "<FinalControlElement ID=\"M-200\" ComponentClass=\"ElectricMotor\" ComponentName=\"MotorShape\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagName\" Value=\"M-200\"/></GenericAttributes>"
+        + "</FinalControlElement>"
         + "<ActuatingElectricalFunction ComponentClass=\"ActuatingElectricalFunction\" ID=\"AEF-200\">"
         + "<GenericAttributes>" + "<GenericAttribute Name=\"ActuatingFunctionNumberAssignmentClass\" Value=\"YC-200\"/>"
         + "<GenericAttribute Name=\"FinalControlElementID\" Value=\"M-200\"/>"
@@ -447,16 +530,26 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("M-200", function.getFinalControlElementId());
     assertTrue(function.isFinalControlElementResolved());
     assertEquals("FinalControlElement", function.getFinalControlElementName());
+    assertEquals("ElectricMotor", function.getFinalControlElementComponentClass());
+    assertEquals("MotorShape", function.getFinalControlElementComponentName());
+    assertEquals("M-200", function.getFinalControlElementTagName());
     assertEquals("N-ELECTRICAL", function.getLocationId());
     assertTrue(function.isLocationResolved());
+    assertEquals("Nozzle", function.getLocationComponentClass());
+    assertEquals("MotorNozzle", function.getLocationComponentName());
+    assertEquals("NZ-200", function.getLocationTagName());
     assertTrue(result.getDiagnostics().isEmpty());
   }
 
   @Test
   public void testReadWithDiagnosticsPreservesParallelMaterialConnections() throws Exception {
     String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<PlantModel>"
-        + "<Equipment ID=\"E-OUT\"><Nozzle ID=\"N-OUT\"/></Equipment>"
-        + "<Equipment ID=\"E-IN\"><Nozzle ID=\"N-IN\"/></Equipment>"
+        + "<Equipment ID=\"E-OUT\" ComponentClass=\"CentrifugalPump\" ComponentName=\"ExportPump\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagName\" Value=\"P-101\"/></GenericAttributes>"
+        + "<Nozzle ID=\"N-OUT\"/></Equipment>"
+        + "<Equipment ID=\"E-IN\" ComponentClass=\"Separator\" ComponentName=\"InletSeparator\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagName\" Value=\"V-101\"/></GenericAttributes>"
+        + "<Nozzle ID=\"N-IN\"/></Equipment>"
         + "<PipingNetworkSegment ID=\"S-1\" ComponentClass=\"PipingNetworkSegment\">"
         + "<Connection FromID=\"N-OUT\" ToID=\"N-IN\"/></PipingNetworkSegment>"
         + "<PipingNetworkSegment ID=\"S-2\" ComponentClass=\"PipingNetworkSegment\">"
@@ -480,6 +573,12 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("E-IN", firstConnection.getToOwnerId());
     assertEquals("Equipment", firstConnection.getFromOwnerElementName());
     assertEquals("Equipment", firstConnection.getToOwnerElementName());
+    assertEquals("CentrifugalPump", firstConnection.getFromOwnerComponentClass());
+    assertEquals("ExportPump", firstConnection.getFromOwnerComponentName());
+    assertEquals("P-101", firstConnection.getFromOwnerTagName());
+    assertEquals("Separator", firstConnection.getToOwnerComponentClass());
+    assertEquals("InletSeparator", firstConnection.getToOwnerComponentName());
+    assertEquals("V-101", firstConnection.getToOwnerTagName());
     assertTrue(firstConnection.isResolved());
     assertTrue(firstConnection.isOwnershipResolved());
     assertEquals("S-2/connection-1", first.getConnections().get(1).getId());
@@ -487,6 +586,34 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertTrue(first.toJson().contains("\"connectionCount\": 2"));
     assertEquals(first.toJson(), second.toJson());
     assertThrows(UnsupportedOperationException.class, () -> first.getConnections().clear());
+  }
+
+  @Test
+  public void testReadWithDiagnosticsPreservesDirectConnectionOwnerProvenance() throws Exception {
+    String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<PlantModel>"
+        + "<PipingComponent ID=\"PC-DIRECT\" ComponentClass=\"GlobeValve\" ComponentName=\"ValveShape\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagName\" Value=\"XV-101\"/></GenericAttributes>"
+        + "</PipingComponent><Equipment ID=\"E-DIRECT\" ComponentClass=\"Tank\" ComponentName=\"TankShape\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagNameAssignmentClass\" Value=\"TK-101\"/>"
+        + "</GenericAttributes></Equipment>"
+        + "<PipingNetworkSegment ID=\"S-DIRECT\"><Connection ID=\"C-DIRECT\" FromID=\"PC-DIRECT\""
+        + " ToID=\"E-DIRECT\"/></PipingNetworkSegment></PlantModel>";
+
+    DexpiXmlReader.ImportResult result = DexpiXmlReader
+        .readWithDiagnostics(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+    DexpiConnectionInfo connection = result.getConnections().get(0);
+
+    assertEquals("PipingComponent", connection.getFromElementName());
+    assertEquals("PC-DIRECT", connection.getFromOwnerId());
+    assertEquals("GlobeValve", connection.getFromOwnerComponentClass());
+    assertEquals("ValveShape", connection.getFromOwnerComponentName());
+    assertEquals("XV-101", connection.getFromOwnerTagName());
+    assertEquals("Equipment", connection.getToElementName());
+    assertEquals("E-DIRECT", connection.getToOwnerId());
+    assertEquals("Tank", connection.getToOwnerComponentClass());
+    assertEquals("TankShape", connection.getToOwnerComponentName());
+    assertEquals("TK-101", connection.getToOwnerTagName());
+    assertTrue(connection.isOwnershipResolved());
   }
 
   @Test
@@ -536,6 +663,12 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     DexpiConnectionInfo legacy = new DexpiConnectionInfo("C", "C", "S", "A", "B", "Nozzle", "Nozzle", true, true);
     assertEquals("", legacy.getFromOwnerId());
     assertEquals("", legacy.getToOwnerId());
+    assertEquals("", legacy.getFromOwnerComponentClass());
+    assertEquals("", legacy.getFromOwnerComponentName());
+    assertEquals("", legacy.getFromOwnerTagName());
+    assertEquals("", legacy.getToOwnerComponentClass());
+    assertEquals("", legacy.getToOwnerComponentName());
+    assertEquals("", legacy.getToOwnerTagName());
   }
 
   @Test
@@ -543,7 +676,9 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<PlantModel>"
         + "<Equipment ID=\"E-A\"><Nozzle ID=\"N-A\"/></Equipment>"
         + "<Equipment ID=\"E-B\"><Nozzle ID=\"N-B\"/></Equipment>"
-        + "<PipingComponent ID=\"PC-J\"><Nozzle ID=\"N-J\"/></PipingComponent>"
+        + "<PipingComponent ID=\"PC-J\" ComponentClass=\"PipeFitting\" ComponentName=\"TeeShape\">"
+        + "<GenericAttributes><GenericAttribute Name=\"TagNameAssignmentClass\" Value=\"TEE-101\"/>"
+        + "</GenericAttributes><Nozzle ID=\"N-J\"/></PipingComponent>"
         + "<Equipment ID=\"E-C\"><Nozzle ID=\"N-C\"/></Equipment>"
         + "<PipingNetworkSegment ID=\"S-1\"><Connection ID=\"C-1\" FromID=\"N-A\" ToID=\"N-J\"/>"
         + "</PipingNetworkSegment>"
@@ -563,6 +698,10 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertEquals("N-J", junction.getEndpointId());
     assertEquals("Nozzle", junction.getElementName());
     assertEquals("PC-J", junction.getOwnerId());
+    assertEquals("PipingComponent", junction.getOwnerElementName());
+    assertEquals("PipeFitting", junction.getOwnerComponentClass());
+    assertEquals("TeeShape", junction.getOwnerComponentName());
+    assertEquals("TEE-101", junction.getOwnerTagName());
     assertTrue(junction.isResolved());
     assertEquals(2, junction.getIncomingConnectionCount());
     assertEquals(1, junction.getOutgoingConnectionCount());
@@ -576,6 +715,9 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     DexpiConnectionEndpointInfo unresolved = first.getConnectionEndpoints().get(4);
     assertEquals("UNKNOWN", unresolved.getEndpointId());
     assertFalse(unresolved.isResolved());
+    assertEquals("", unresolved.getOwnerComponentClass());
+    assertEquals("", unresolved.getOwnerComponentName());
+    assertEquals("", unresolved.getOwnerTagName());
     assertEquals(Collections.singletonList("C-4"), unresolved.getOutgoingConnectionIds());
     assertEquals(0, unresolved.getIncomingConnectionCount());
     assertEquals(DexpiConnectionEndpointInfo.IncidenceRole.SOURCE, unresolved.getIncidenceRole());
@@ -585,6 +727,9 @@ public class DexpiXmlReaderTest extends NeqSimTest {
     assertTrue(first.toJson().contains("\"connectionEndpointCount\": 5"));
     assertTrue(first.toJson().contains("\"incidenceRole\": \"MERGE\""));
     assertTrue(first.toJson().contains("\"potentialMultiConnectionNode\": true"));
+    assertTrue(first.toJson().contains("\"ownerComponentClass\": \"PipeFitting\""));
+    assertTrue(first.toJson().contains("\"ownerComponentName\": \"TeeShape\""));
+    assertTrue(first.toJson().contains("\"ownerTagName\": \"TEE-101\""));
     assertEquals(first.toJson(), second.toJson());
   }
 

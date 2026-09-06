@@ -34,7 +34,7 @@ NeqSim provides a complete [DEXPI](https://dexpi.org/) integration that supports
 | `DexpiStream` | Lightweight piping segment with DEXPI class, line number, and fluid code |
 | `DexpiProcessUnit` | Imported equipment with original DEXPI class and mapped `EquipmentEnum` |
 | `DexpiInstrumentInfo` | Instrument metadata (tag, type, function letter) |
-| `DexpiActuatingFunctionInfo` | Immutable source-order actuating-function identity and reference evidence |
+| `DexpiActuatingFunctionInfo` | Immutable source-order actuating-function identity, reference, and resolved-target provenance |
 | `DexpiConnectionInfo` | Immutable source-order material-connection evidence and endpoint resolution |
 
 ---
@@ -147,15 +147,20 @@ incomplete source content into closed-loop control intent.
 `ActuatingElectricalFunction` occurrences as immutable `DexpiActuatingFunctionInfo` records. Each
 record retains the explicit source kind, ID, component class, function number, enclosing
 `ProcessInstrumentationFunction` identity, `FinalControlElementID`, and `is located in` identity,
-together with resolution flags and resolved XML element names. Missing and unresolved references
-remain visible. The API does not classify final-element type, infer control intent, identify a
-safeguard or SIS function, or alter live simulation topology.
+together with resolution flags and resolved XML element names. For each resolved final-element and
+location target, it also preserves the source object's explicit `ComponentClass`, `ComponentName`,
+and `TagName`; absent source metadata remains an empty string. Missing and unresolved references
+remain visible without invented target metadata. The API does not classify final-element type,
+infer control intent, identify a safeguard or SIS function, or alter live simulation topology.
 
 `ImportResult.getInformationFlows()` exposes the corresponding source-ordered
 `MeasuringLineFunction` and `SignalLineFunction` evidence as immutable
 `DexpiInformationFlowInfo` records. Each record retains its source ID and component class, logical
-start and end IDs, whether those references resolve, and their resolved XML element names. Measuring
-lines additionally retain explicit attachment identity and resolution; signal lines retain the source
+start and end IDs, whether those references resolve, and their resolved XML element names. For each
+resolved logical source, logical target, and process attachment, the record also preserves the source
+object's explicit `ComponentClass`, `ComponentName`, and `TagName`; absent source metadata and
+unresolved references remain empty strings without invented values. Measuring lines additionally
+retain explicit attachment identity and resolution; signal lines retain the source
 `SignalConveyingTypeSpecialization`. Missing and unresolved references remain present beside the
 diagnostics, so Java and JPype callers do not need to reparse XML or invent endpoints. These records
 do not create live transmitters or controllers, infer control-loop intent, verify a loop, or classify
@@ -166,8 +171,11 @@ safety-instrumented or safeguard functions.
 `DexpiInstrumentationLoopInfo`. The record retains the loop ID, component class, explicit loop
 number, and every direct `is a collection including` occurrence in source order. Membership
 evidence preserves duplicate, blank, and unresolved references together with resolution status and
-the resolved XML element name. It does not infer control intent, verify functional completeness,
-construct executable control topology, or classify SIS or safeguard functions.
+the resolved XML element name. For each resolved member, it also preserves the source object's
+explicit `ComponentClass`, `ComponentName`, and `TagName`; absent source metadata and unresolved
+references remain empty strings without invented values. It does not infer control intent, verify
+functional completeness, construct executable control topology, or classify SIS or safeguard
+functions.
 
 The same result also preserves every source `Connection` in document order, including parallel
 connections between the same endpoints. Each immutable `DexpiConnectionInfo` retains the owning
@@ -178,15 +186,20 @@ inventory does not infer connectivity or rewire the returned `ProcessSystem`.
 
 For resolved nozzle endpoints, the same record exposes only explicit source ownership: the nearest
 ancestor `Equipment` or `PipingComponent` identity and XML element name. Direct equipment or
-piping-component endpoints own themselves. Orphaned nozzles and owner elements without source IDs
-remain deterministic warnings; the reader does not derive ownership from coordinates, tags,
-stream order, or simulation state.
+piping-component endpoints own themselves. For each resolved owner, the connection occurrence also
+preserves the owner's explicit `ComponentClass`, `ComponentName`, and `TagName`; absent source
+metadata remains an empty string. Orphaned nozzles and owner elements without source IDs remain
+deterministic warnings; unresolved owners receive no invented metadata. The reader does not derive
+ownership or owner metadata from coordinates, endpoint tags, stream order, simulation state, or
+class heuristics.
 
 `ImportResult.getConnectionEndpoints()` provides a distinct endpoint inventory in first-reference
-order. Each immutable `DexpiConnectionEndpointInfo` records the resolved element and explicit owner
-evidence plus the incoming and outgoing connection-evidence IDs in source order. Counts retain every
-occurrence, including parallel connections. Blank endpoint references remain findings and are omitted
-from this keyed inventory; unresolved non-empty IDs remain visible.
+order. Each immutable `DexpiConnectionEndpointInfo` records the resolved element, explicit owner
+identity and XML element name, and the owner's explicit `ComponentClass`, `ComponentName`, and
+`TagName`, plus the incoming and outgoing connection-evidence IDs in source order. Counts retain
+every occurrence, including parallel connections. Blank endpoint references remain findings and are
+omitted from this keyed inventory; unresolved non-empty IDs remain visible with empty owner
+provenance.
 
 `getIncidenceRole()` classifies only this directed source evidence: zero incoming and one outgoing
 is `SOURCE`; one incoming and zero outgoing is `SINK`; one of each is `PASS_THROUGH`; one

@@ -10,6 +10,55 @@ import org.junit.jupiter.api.Test;
 
 class CoupledPressureMomentumSolverTest {
   @Test
+  void feasibleIncomingCorrectionSuppliesThroughFlowInEitherDirection() {
+    for (boolean reverse : new boolean[] { false, true }) {
+      double[][] state = new double[3][7];
+      double[][] density = { filled(3, 1.0), filled(3, 800.0), filled(3, 1000.0) };
+      for (int cell = 0; cell < 3; cell++) {
+        state[cell][0] = 1.0;
+      }
+      int donor = reverse ? 2 : 0;
+      int receiver = reverse ? 0 : 2;
+      state[donor][0] = 100.0;
+      density[0][donor] = 100.0;
+      double[] correction = reverse ? new double[] { 0.0, 2.0, 4.0 } : new double[] { 4.0, 2.0, 0.0 };
+      double[] initialMass = totalPhaseMass(state);
+      CoupledPressureMomentumSolver.applyConservativeMassFluxCorrection(state, 1.0, correction,
+          phaseAreas(state, density), filled(3, 1.0), filled(3, 1.0), density, false);
+
+      assertEquals(98.0, state[donor][0], 1e-12);
+      assertEquals(1.0, state[1][0], 1e-12,
+          "A feasible incoming 2 kg transfer must supply the simultaneous 2 kg outgoing transfer");
+      assertEquals(3.0, state[receiver][0], 1e-12);
+      assertNonnegativePhaseMasses(state);
+      assertArrayEquals(initialMass, totalPhaseMass(state), 1e-12);
+    }
+  }
+
+  @Test
+  void reducedIncomingCorrectionPropagatesWithoutOverdrawingDownstreamCells() {
+    for (boolean reverse : new boolean[] { false, true }) {
+      double[][] state = new double[6][7];
+      double[][] density = { filled(6, 0.1), filled(6, 800.0), filled(6, 1000.0) };
+      double[] correction = new double[6];
+      double[] lengths = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
+      for (int cell = 0; cell < 6; cell++) {
+        state[cell][0] = 0.1;
+        correction[cell] = reverse ? 100.0 * cell : 100.0 * (5 - cell);
+      }
+      double[] initialMass = weightedPhaseMass(state, lengths);
+      CoupledPressureMomentumSolver.applyConservativeMassFluxCorrection(state, 1.0, correction,
+          phaseAreas(state, density), filled(6, 1.0), lengths, density, false);
+
+      assertNonnegativePhaseMasses(state);
+      assertArrayEquals(initialMass, weightedPhaseMass(state, lengths), 1e-12,
+          "Only feasible incoming mass may fund downstream corrections");
+      int receiver = reverse ? 0 : 5;
+      assertEquals(initialMass[0], state[receiver][0] * lengths[receiver], 1e-12);
+    }
+  }
+
+  @Test
   void volumeClosedPredictorStillEnforcesChangedOutletPressure() {
     for (boolean checkerboard : new boolean[] { false, true }) {
       for (CoupledPressureMomentumSolver.GasDensityModel model : CoupledPressureMomentumSolver.GasDensityModel
@@ -67,6 +116,8 @@ class CoupledPressureMomentumSolverTest {
 
     assertTrue(result.isConverged());
     assertEquals(0, result.getIterations());
+    assertEquals(1.0, result.getMinimumMassFluxCorrectionScale(), 0.0,
+        "An invariant state has no limited correction to report");
     for (int cell = 0; cell < state.length; cell++) {
       assertArrayEquals(original[cell], result.getState()[cell], 0.0);
     }

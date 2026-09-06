@@ -189,6 +189,9 @@ public class TwoFluidPipe extends Pipeline {
   /** Coupled nonlinear substeps rejected since the latest steady initialization. */
   private int transientCoupledPressureMomentumRejectedSubsteps = 0;
 
+  /** Exact diagnostics for coupled nonlinear substeps rejected since steady initialization. */
+  private String transientCoupledPressureMomentumFailureDiagnostic = "";
+
   /** Optional phase-resolved compressible volume supplying the inlet pressure boundary. */
   private UpstreamCompressibleVolume upstreamCompressibleVolume = null;
 
@@ -4171,6 +4174,7 @@ public class TwoFluidPipe extends Pipeline {
     transientCoupledPressureMomentumFailureDetected = false;
     transientCoupledPressureMomentumCorrectionLimited = false;
     transientCoupledPressureMomentumRejectedSubsteps = 0;
+    transientCoupledPressureMomentumFailureDiagnostic = "";
 
     // Initialize sections
     initializeSections();
@@ -4275,6 +4279,10 @@ public class TwoFluidPipe extends Pipeline {
     int maxSubSteps = getMaximumTransientSubsteps();
     int stepCount = 0;
     int consecutiveCoupledPressureMomentumFailures = 0;
+    int lastRejectedCell = -1;
+    int lastRejectedVariable = -1;
+    double lastRejectedValue = Double.NaN;
+    double lastRejectedPreviousValue = Double.NaN;
 
     while (timeRemaining > completionTolerance && stepCount < maxSubSteps) {
       stepCount++;
@@ -4435,8 +4443,28 @@ public class TwoFluidPipe extends Pipeline {
 
       if (coupledPressureMomentumEnabled && !timeIntegrator.isCoupledPressureMomentumConverged()) {
         lastStepRejection = "coupled pressure correction did not converge";
+        if (consecutiveCoupledPressureMomentumFailures == 0) {
+          logger.warn(
+              "{}: rejecting coupled pressure-momentum substep of {} s after {}/{} iterations; "
+                  + "relative cell-volume residual={}, tolerance={}, pressureCorrectionLimited={}",
+              getName(), dtActual, timeIntegrator.getCoupledPressureMomentumIterations(),
+              timeIntegrator.getCoupledPressureMomentumMaximumIterations(),
+              timeIntegrator.getCoupledPressureMomentumVolumeResidual(),
+              timeIntegrator.getCoupledPressureMomentumRelativeVolumeTolerance(),
+              timeIntegrator.isCoupledPressureMomentumPressureCorrectionLimited());
+        }
         transientCoupledPressureMomentumFailureDetected = true;
         transientCoupledPressureMomentumRejectedSubsteps++;
+        String rejectionDiagnostic = "elapsed=" + acceptedElapsedTime + " s, attemptedDt=" + dtActual
+            + " s, iterations=" + timeIntegrator.getCoupledPressureMomentumIterations() + "/"
+            + timeIntegrator.getCoupledPressureMomentumMaximumIterations() + ", relativeCellVolumeResidual="
+            + timeIntegrator.getCoupledPressureMomentumVolumeResidual() + ", tolerance="
+            + timeIntegrator.getCoupledPressureMomentumRelativeVolumeTolerance() + ", pressureCorrectionLimited="
+            + timeIntegrator.isCoupledPressureMomentumPressureCorrectionLimited() + ", minimumMassFluxCorrectionScale="
+            + timeIntegrator.getCoupledPressureMomentumMinimumMassFluxCorrectionScale();
+        transientCoupledPressureMomentumFailureDiagnostic = transientCoupledPressureMomentumFailureDiagnostic.isEmpty()
+            ? rejectionDiagnostic
+            : transientCoupledPressureMomentumFailureDiagnostic + "; " + rejectionDiagnostic;
         consecutiveCoupledPressureMomentumFailures++;
         sections = previousSections;
         currentStep--;
@@ -4456,6 +4484,22 @@ public class TwoFluidPipe extends Pipeline {
       // stepping fails at the last accepted state; adaptive stepping may retry.
       if (!hasValidConservativeState(U_new)) {
         lastStepRejection = describeInvalidConservativeState(U_new);
+        lastRejectedCell = -1;
+        for (int cell = 0; cell < U_new.length; cell++) {
+          for (int variable = 0; variable < U_new[cell].length; variable++) {
+            double value = U_new[cell][variable];
+            if (!Double.isFinite(value) || (variable < 3 && value < 0.0)) {
+              lastRejectedCell = cell;
+              lastRejectedVariable = variable;
+              lastRejectedValue = value;
+              lastRejectedPreviousValue = U_prev[cell][variable];
+              break;
+            }
+          }
+          if (lastRejectedCell == cell) {
+            break;
+          }
+        }
         sections = previousSections;
         currentStep--;
         if (!enableAdaptiveTimestepping || adaptiveDtFactor <= MIN_ADAPTIVE_DT_FACTOR) {
@@ -4666,7 +4710,9 @@ public class TwoFluidPipe extends Pipeline {
           + timeIntegrator.getCoupledPressureMomentumIterations() + "/"
           + timeIntegrator.getCoupledPressureMomentumMaximumIterations() + ", pressureCorrectionLimited="
           + timeIntegrator.isCoupledPressureMomentumPressureCorrectionLimited() + "; last rejection="
-          + lastStepRejection);
+          + lastStepRejection + ", lastRejectedCell=" + lastRejectedCell + ", lastRejectedVariable="
+          + lastRejectedVariable + ", lastRejectedValue=" + lastRejectedValue + ", lastRejectedPreviousValue="
+          + lastRejectedPreviousValue);
     }
 
     setCalculationIdentifier(id);
@@ -8041,6 +8087,15 @@ public class TwoFluidPipe extends Pipeline {
    */
   public int getTransientCoupledPressureMomentumRejectedSubsteps() {
     return transientCoupledPressureMomentumRejectedSubsteps;
+  }
+
+  /**
+   * Get exact diagnostics for rejected coupled nonlinear substeps since steady initialization.
+   *
+   * @return semicolon-separated rejection diagnostics, or an empty string when none were rejected
+   */
+  public String getTransientCoupledPressureMomentumFailureDiagnostic() {
+    return transientCoupledPressureMomentumFailureDiagnostic;
   }
 
   /**

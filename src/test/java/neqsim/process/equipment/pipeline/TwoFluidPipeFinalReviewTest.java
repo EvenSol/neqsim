@@ -35,6 +35,9 @@ class TwoFluidPipeFinalReviewTest {
       IllegalStateException failure = assertThrows(IllegalStateException.class,
           () -> pipe.runTransient(0.001, attemptedId), "Invalid raw variable " + variable + " was accepted");
       assertTrue(failure.getMessage().contains("invalid conservative value"));
+      assertTrue(failure.getMessage().contains("lastRejectedCell=1"));
+      assertTrue(failure.getMessage().contains("lastRejectedVariable=" + variable));
+      assertTrue(failure.getMessage().contains("lastRejectedPreviousValue=" + initial[1][variable]));
       assertEquals(0.0, pipe.getTime(), 0.0);
       assertEquals(0.0, pipe.getSimulationTime(), 0.0);
       assertEquals(0.0, integrator.getCurrentTime(), 0.0);

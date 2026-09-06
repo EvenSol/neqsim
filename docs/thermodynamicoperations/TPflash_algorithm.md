@@ -2282,6 +2282,76 @@ numerical evidence, not experimental validation of CPA parameters or the predict
 code, public APIs, association parameters, mixing-rule defaults, electrolyte/reaction models, saturation search,
 Column Solver, generic Process Performance, proprietary data, and Huldra are outside this tranche.
 
+### 6.4.12 UMR-PRU trace oil-dropout lifecycle qualification
+
+The synthetic qualification uses `SystemUMRPRUMCEos` with the `HV` /
+`UNIFAC_UMRPRU` mixing rule. Its normalized 24-component lean-gas feed contains
+nitrogen, carbon dioxide, methane through n-pentane, both methylpentane isomers,
+normal and cyclic C6-C8 components, benzene, toluene, m-xylene, and normal C9-C12
+heavy ends. The qualified range is 281.15-293.15 K (8-20 °C) at 77-79 bara.
+This is deterministic numerical evidence after component and UNIFAC-table repairs,
+not experimental PVT validation of UMR-PRU parameters or the predicted dew point.
+
+The established 78 bara oil-beta anchors are `9.144142e-4` at 8 °C,
+`3.502455e-4` at 18 °C, and `2.582079e-4` at 20 °C, each with an absolute
+tolerance of `5e-6`. Oil dropout must increase monotonically as temperature
+decreases from 20 to 8 °C. Ordinary and multiphase public TP flashes must recover
+the same GAS+OIL equilibrium at the three anchor temperatures.
+
+Every qualified state requires finite bounded phase fractions and compositions,
+beta and phase normalization within `2e-12`, component material balance below
+`1e-10`, and maximum comparable interphase log-fugacity residual below
+`1e-8`. Each phase must have positive finite compressibility, while total Gibbs
+energy and enthalpy must remain finite. The regression also qualifies recovery
+from beta values within `1e-12` of a bound, nearby pressures, a changed
+temperature/pressure state, return to the reference state, and an immediate
+deterministic repeat. Gas and liquid roles are matched explicitly so phase-array
+ordering cannot hide a lifecycle mismatch.
+
+The focused class performs 31 complete public TP flashes. This fixed workload is
+performance evidence only; no wall-clock threshold or production speedup is
+claimed. Production solver code, public APIs, model parameters or defaults,
+experimental parameter validation, saturation search, electrolyte/reaction
+models, solids/wax, Column Solver, Process Performance, proprietary data, and
+Huldra are outside this tranche.
+
+### 6.4.13 Incipient phase appearance and disappearance lifecycle qualification
+
+The phase-boundary qualification covers two synthetic numerical cases. A classic-mixing
+`SystemSrkEos` feed of methane, ethane, propane, and n-butane at
+253.46685189059752 K and 77.53775411226596 bara must retain an incipient vapour
+fraction of `3.50882832337307e-5` through the supplementary stability trial. A
+classic-mixing `SystemUMRPRUMCEos` feed of methane, ethane, n-pentane, and nC16
+at 293.15 K must retain a stable single phase at 90.03461693 and 90.5 bara.
+The ordinary and multiphase paths must agree while the sub-residual TPD guard
+retains the reference single phase. The 89.5 bara trial is outside this qualified
+envelope because its Windows endpoint does not satisfy the closure gates. Both
+feeds are synthetic and provide numerical
+regression evidence rather than experimental validation of phase boundaries or
+model parameters.
+
+Every active phase and beta must be finite, bounded, and normalized within
+`3e-12`; maximum component material-balance residual must be below `1e-10`;
+and every phase must have positive finite compressibility. Two-phase states require
+maximum comparable interphase log-fugacity residual below `1e-8`. Single-phase
+states require beta one and `x=z` within `1e-10`. Total Gibbs energy and
+enthalpy must remain finite.
+
+Ordinary and multiphase public TP flashes must agree for both boundary roles. The
+SRK stability diagnostic must continue to report the supplementary unstable trial.
+Both cases must recover from beta values within `1e-12` of a bound. Reused
+systems are moved to a nearby pressure, compared with fresh calculations, returned
+to the reference pressure, and flashed again; the changed and returned states must
+remain equivalent within `1e-8`, while the incipient-vapour immediate repeat uses
+the measured cross-platform beta bound of `2e-9`.
+
+The focused class performs 21 complete TP flashes. That fixed workload is
+performance evidence only; no wall-clock threshold or production speedup is
+claimed. Production stability algorithms, public APIs, model parameters and
+defaults, saturation operations, electrolyte-performance ownership, solids/wax,
+Column Solver, Process Performance, proprietary data, and Huldra are outside this
+tranche.
+
 ### 6.5 Hybrid EOS-GE ionic-capacity safeguard
 
 In a fixed-role EOS-gas/GE-aqueous calculation, ions are excluded from every non-aqueous role.

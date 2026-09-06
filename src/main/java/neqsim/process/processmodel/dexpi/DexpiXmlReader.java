@@ -214,8 +214,9 @@ public final class DexpiXmlReader {
      * Returns supported instrumentation information-flow occurrences in source-document order.
      *
      * <p>
-     * These records retain logical references and resolution evidence only. They do not construct live control
-     * topology, infer control intent, or verify loop function.
+     * These records retain logical references, resolution evidence, and explicit metadata from resolved source, target,
+     * and process-attachment elements. They do not construct live control topology, infer control intent, or verify
+     * loop function.
      * </p>
      *
      * @return immutable signal-line and measuring-line evidence
@@ -870,7 +871,9 @@ public final class DexpiXmlReader {
         }
         String memberId = association.getAttribute("ItemID");
         Element member = elementsById.get(memberId);
-        members.add(new DexpiInstrumentationLoopInfo.Member(memberId, member != null, elementName(member)));
+        members.add(new DexpiInstrumentationLoopInfo.Member(memberId, member != null, elementName(member),
+            explicitAttribute(member, "ComponentClass"), explicitAttribute(member, "ComponentName"),
+            explicitTagName(member)));
       }
       result.add(new DexpiInstrumentationLoopInfo(loop.getAttribute("ID"), loop.getAttribute("ComponentClass"),
           getGenericAttribute(loop, DexpiMetadata.LOOP_NUMBER), members));
@@ -923,10 +926,31 @@ public final class DexpiXmlReader {
       result.add(new DexpiActuatingFunctionInfo(element.getAttribute("ID"), kind, componentClass,
           getGenericAttribute(element, DexpiMetadata.ACTUATING_FUNCTION_NUMBER), instrumentationFunctionId,
           instrumentationFunctionResolved, elementName(instrumentationFunction), finalControlElementId,
-          finalControlElement != null, elementName(finalControlElement), locationId, location != null,
-          elementName(location)));
+          finalControlElement != null, elementName(finalControlElement),
+          explicitAttribute(finalControlElement, "ComponentClass"),
+          explicitAttribute(finalControlElement, "ComponentName"), explicitTagName(finalControlElement), locationId,
+          location != null, elementName(location), explicitAttribute(location, "ComponentClass"),
+          explicitAttribute(location, "ComponentName"), explicitTagName(location)));
     }
     return result;
+  }
+
+  private static String explicitAttribute(Element element, String attributeName) {
+    return element == null ? "" : element.getAttribute(attributeName);
+  }
+
+  private static String explicitGenericAttribute(Element element, String attributeName) {
+    if (element == null) {
+      return "";
+    }
+    String value = getGenericAttribute(element, attributeName);
+    return value == null ? "" : value;
+  }
+
+  private static String explicitTagName(Element element) {
+    String value = firstNonEmpty(explicitGenericAttribute(element, "TagName"),
+        explicitGenericAttribute(element, DexpiMetadata.TAG_NAME));
+    return value == null ? "" : value;
   }
 
   private static List<DexpiInformationFlowInfo> parseInformationFlows(Document document) {
@@ -969,9 +993,13 @@ public final class DexpiXmlReader {
       Element targetElement = elementsById.get(targetId);
       Element attachmentElement = elementsById.get(attachmentId);
       result.add(new DexpiInformationFlowInfo(element.getAttribute("ID"), kind, componentClass, sourceId,
-          sourceElement != null, elementName(sourceElement), targetId, targetElement != null,
-          elementName(targetElement), attachmentId, attachmentElement != null, elementName(attachmentElement),
-          getGenericAttribute(element, "SignalConveyingTypeSpecialization")));
+          sourceElement != null, elementName(sourceElement), explicitAttribute(sourceElement, "ComponentClass"),
+          explicitAttribute(sourceElement, "ComponentName"), explicitTagName(sourceElement), targetId,
+          targetElement != null, elementName(targetElement), explicitAttribute(targetElement, "ComponentClass"),
+          explicitAttribute(targetElement, "ComponentName"), explicitTagName(targetElement), attachmentId,
+          attachmentElement != null, elementName(attachmentElement),
+          explicitAttribute(attachmentElement, "ComponentClass"), explicitAttribute(attachmentElement, "ComponentName"),
+          explicitTagName(attachmentElement), getGenericAttribute(element, "SignalConveyingTypeSpecialization")));
     }
     return result;
   }
@@ -1088,7 +1116,10 @@ public final class DexpiXmlReader {
           fromElement == null ? "" : fromElement.getTagName(), toElement == null ? "" : toElement.getTagName(),
           fromOwner == null ? "" : fromOwner.getAttribute("ID"), toOwner == null ? "" : toOwner.getAttribute("ID"),
           fromOwner == null ? "" : fromOwner.getTagName(), toOwner == null ? "" : toOwner.getTagName(),
-          fromElement != null, toElement != null));
+          explicitAttribute(fromOwner, "ComponentClass"), explicitAttribute(fromOwner, "ComponentName"),
+          explicitTagName(fromOwner), explicitAttribute(toOwner, "ComponentClass"),
+          explicitAttribute(toOwner, "ComponentName"), explicitTagName(toOwner), fromElement != null,
+          toElement != null));
     }
     logger.info("Parsed {} material connections from DEXPI XML", connections.size());
     return connections;
@@ -1464,6 +1495,9 @@ public final class DexpiXmlReader {
           source ? connection.getFromElementName() : connection.getToElementName(),
           source ? connection.getFromOwnerId() : connection.getToOwnerId(),
           source ? connection.getFromOwnerElementName() : connection.getToOwnerElementName(),
+          source ? connection.getFromOwnerComponentClass() : connection.getToOwnerComponentClass(),
+          source ? connection.getFromOwnerComponentName() : connection.getToOwnerComponentName(),
+          source ? connection.getFromOwnerTagName() : connection.getToOwnerTagName(),
           source ? connection.isFromResolved() : connection.isToResolved());
       endpoints.put(endpointId, endpoint);
     }
@@ -1475,16 +1509,23 @@ public final class DexpiXmlReader {
     private final String elementName;
     private final String ownerId;
     private final String ownerElementName;
+    private final String ownerComponentClass;
+    private final String ownerComponentName;
+    private final String ownerTagName;
     private final boolean resolved;
     private final List<String> incomingConnectionIds = new ArrayList<String>();
     private final List<String> outgoingConnectionIds = new ArrayList<String>();
 
     private ConnectionEndpointAccumulator(String endpointId, String elementName, String ownerId,
-        String ownerElementName, boolean resolved) {
+        String ownerElementName, String ownerComponentClass, String ownerComponentName, String ownerTagName,
+        boolean resolved) {
       this.endpointId = endpointId;
       this.elementName = elementName;
       this.ownerId = ownerId;
       this.ownerElementName = ownerElementName;
+      this.ownerComponentClass = ownerComponentClass;
+      this.ownerComponentName = ownerComponentName;
+      this.ownerTagName = ownerTagName;
       this.resolved = resolved;
     }
 
@@ -1497,8 +1538,8 @@ public final class DexpiXmlReader {
     }
 
     private DexpiConnectionEndpointInfo toInfo() {
-      return new DexpiConnectionEndpointInfo(endpointId, elementName, ownerId, ownerElementName, resolved,
-          incomingConnectionIds, outgoingConnectionIds);
+      return new DexpiConnectionEndpointInfo(endpointId, elementName, ownerId, ownerElementName, ownerComponentClass,
+          ownerComponentName, ownerTagName, resolved, incomingConnectionIds, outgoingConnectionIds);
     }
   }
 

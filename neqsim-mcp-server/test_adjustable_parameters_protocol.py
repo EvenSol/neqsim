@@ -179,7 +179,8 @@ def assert_registry(result):
         require(isinstance(unit, str), "parameter unit is not a string", parameter)
         if not unit:
             require(
-                parameter.get("targetProperty") == "polytropicEfficiency",
+                parameter.get("targetProperty")
+                in {"polytropicEfficiency", "isentropicEfficiency"},
                 "empty unit is reserved for qualified dimensionless properties",
                 parameter,
             )
@@ -258,12 +259,12 @@ def test_phase0_contract_is_promoted(client):
     result = payload(client.call_tool("getCapabilities", {}))
     inventory = result.get("phase0EvidenceInventory")
     require(isinstance(inventory, dict), "capabilities omitted Phase 0 inventory", result)
-    require(inventory.get("inventoryVersion") == "1.25", "inventory version drifted", inventory)
+    require(inventory.get("inventoryVersion") == "1.26", "inventory version drifted", inventory)
     limitations = inventory.get("knownLimitations", {})
     record = limitations.get("coverageRecords", {}).get("getAdjustableParameters", {})
     require(
-        limitations.get("contractTestedToolCount") == 24
-        and limitations.get("confirmedGapToolCount") == 27
+        limitations.get("contractTestedToolCount") == 25
+        and limitations.get("confirmedGapToolCount") == 26
         and record.get("coverageStatus") == "CONTRACT_TESTED"
         and record.get("benchmarkApplicability")
         == "NOT_APPLICABLE_NON_NUMERICAL_AUTOMATION_PARAMETER_DISCOVERY"

@@ -114,6 +114,8 @@ class CoupledPressureMomentumTengesdalProgressTest {
     assertTrue(failure.getMessage().contains("tolerance=1.0E-14"));
     assertTrue(pipe.isTransientCoupledPressureMomentumFailureDetected());
     assertTrue(pipe.getTransientCoupledPressureMomentumRejectedSubsteps() > 0);
+    assertTrue(pipe.getTransientCoupledPressureMomentumFailureDiagnostic().contains("attemptedDt="));
+    assertTrue(pipe.getTransientCoupledPressureMomentumFailureDiagnostic().contains("minimumMassFluxCorrectionScale="));
     assertNotNull(pipe.getLastMassBalanceReport());
     assertTrue(pipe.getLastMassBalanceReport().getElapsedTimeSeconds() < 0.1);
     assertEquals(1, pipe.getCoupledPressureMomentumMaximumIterations());
@@ -135,13 +137,16 @@ class CoupledPressureMomentumTengesdalProgressTest {
           "refined coupled correction failed at interval " + (step + 1));
       for (Phase phase : Phase.values()) {
         assertTrue(balance.getRelativeResidual(phase) < 1.0e-9,
-            phase + " refined-mesh mass residual exceeded tolerance at interval " + (step + 1));
+            phase + " refined-mesh mass residual exceeded tolerance at interval " + (step + 1) + ": "
+                + balance.getRelativeResidual(phase));
       }
     }
 
     assertEquals(5.0, pipe.getSimulationTime(), 1.0e-9);
     assertFalse(pipe.isTransientOutletBackflowClamped());
-    assertFalse(pipe.isTransientCoupledPressureMomentumFailureDetected());
+    assertFalse(pipe.isTransientCoupledPressureMomentumFailureDetected(),
+        "refined coupled solve recorded " + pipe.getTransientCoupledPressureMomentumRejectedSubsteps()
+            + " rejected substeps: " + pipe.getTransientCoupledPressureMomentumFailureDiagnostic());
     assertEquals(0, pipe.getTransientCoupledPressureMomentumRejectedSubsteps());
   }
 

@@ -1,6 +1,6 @@
 ---
 title: "Sarir atmospheric validation reference"
-description: "Public complete-range TBP, atmospheric-unit operating data, and independent plant-yield evidence."
+description: "Public whole-crude properties, TBP, atmospheric-unit operating data, and independent plant-yield evidence."
 ---
 
 # Sarir atmospheric validation reference
@@ -13,6 +13,32 @@ The source is Hamza E. Omran Almansouri, *Simulation of Sarir Crude Oil Refinery
 
 The paper reports a Sarir crude density of 841.5 kg/m3 at 15 degC, API gravity 36.5 at 60 degF, sulfur 0.120 mass%, average molar mass 0.2447 kg/mol, and a public TBP assay originally prepared by the Libyan Petroleum Institute.
 
+## Whole-crude property evidence
+
+Table 1 gives the following numeric bulk measurements:
+
+| Property | Published value | Basis |
+| --- | ---: | --- |
+| Density | 841.5 kg/m3 | 15 degC |
+| API gravity | 36.5 | 60 degF |
+| Total sulfur | 0.120 mass% | Whole crude |
+| Asphaltenes | 0.20 mass% | Whole crude |
+| Mercaptan sulfur | 8 ppm by mass | Whole crude |
+| Water and sediment | 0.05 volume% | Whole crude |
+| Cloud point | 48.7-49.6 degC | Published interval |
+| Pour point | +21 degC | Whole crude |
+| Kinematic viscosity | 10.63 cSt | 100 degF; the source prose gives the rounded equivalent 37.7 degC |
+| Average molar mass | 0.2447 kg/mol | Whole crude |
+
+The Java API keeps the cloud point as separate lower and upper endpoints. It also exposes both
+published viscosity reference-temperature forms: 100 degF from Table 1 and 37.7 degC from the
+source prose. An exact unit conversion gives 37.777777... degC; the API does not silently replace
+the reported rounded Celsius value.
+
+These are whole-crude reference measurements. The source does not publish uncertainty bounds or
+per-cut allocations for these properties, so they are not distributed across pseudo-components and
+do not qualify a wax, asphaltene, viscosity, water, or sulfur prediction model.
+
 ## Preserved TBP evidence
 
 | TBP temperature (degC) | 70 | 90 | 110 | 150 | 195 | 215 | 255 | 275 | 295 | 335 | 370 | 400 | 460 | 480 | 500 | 520 | 550 |
@@ -21,9 +47,52 @@ The paper reports a Sarir crude density of 841.5 kg/m3 at 15 degC, API gravity 3
 
 The source then reports a `550 degC+` terminal residue reaching 100 volume%. NeqSim retains 550 degC as a one-sided lower boundary and computes the implied 16.30 volume% residue; it does not invent a finite 100% endpoint or an upper boiling limit. The source marks light-end hydrocarbons as not determined, so no light-end composition is synthesized.
 
+## Product specifications
+
+Table 2 reports ASTM D86 temperatures at 95 liquid volume percent as product specifications:
+
+| Product | Test basis | Published specification |
+| --- | --- | ---: |
+| Light Naphtha | ASTM D86 at 95 volume% | 90 degC |
+| Heavy Naphtha | ASTM D86 at 95 volume% | 160 degC |
+| Kerosene | ASTM D86 at 95 volume% | 221 degC |
+| Diesel | ASTM D86 at 95 volume% | 327 degC |
+| Residual | ASTM D86 at 95 volume% | `<550+` |
+
+The Java API keeps these five specification rows separate from the Table 5 laboratory/HYSYS
+results. In particular, the 327 degC diesel specification is not replaced by the 346 degC
+laboratory result or the 339 degC HYSYS result. The residual value is retained as the source's
+nonnumeric, open-ended boundary; requesting a numeric specification temperature for that row
+fails closed. These rows are source design/reference criteria, not independently reproduced
+measurements and not evidence that NeqSim meets the specifications.
+
 ## Atmospheric operating case
 
-The published HYSYS case uses 34 valve trays, feeds 54,420 kg/h of crude at 350 degC and 233 kPa to tray 31 counted from the top, and includes main-column, kerosene-stripper, and diesel-stripper steam rates of 340.2, 68.04, and 226.8 kg/h. Top and bottom pump-around rates are 29,777.64 and 60,423.66 kg/h.
+The published HYSYS case uses 34 valve trays and feeds crude to tray 31 counted from the top.
+Table 3 publishes the complete ADU inlet/outlet stream set:
+
+| Source label | Direction | Temperature (degC) | Pressure (kPa) | Mass flow (kg/h) |
+| --- | --- | ---: | ---: | ---: |
+| Crude oil tower | Inlet | 350 | 233 | 54,420 |
+| Steam | Inlet | 150 | 476 | 340.2 |
+| Kerosene steam | Inlet | 150 | 476 | 68.04 |
+| Diesel steam | Inlet | 150 | 476 | 226.8 |
+| Gas To Flare | Outlet | 49 | 140 | 6.985e-6 |
+| Naphtha | Outlet | 49 | 140 | 8,706 |
+| Kerosene product | Outlet | 126.3 | 210 | 952.2 |
+| Diesel product | Outlet | 214.8 | 219.1 | 17,709.24 |
+| Residual | Outlet | 341.9 | 230 | 26,937.99 |
+| Water draw | Outlet | 49 | 140 | 745.5 |
+
+The four published inlet flows sum to 55,055.04 kg/h and the six outlet flows sum to
+55,050.930006985 kg/h. Their 4.109993015 kg/h difference is less than `1e-4` of the inlet flow.
+This is a transcription and source-rounding check, not an independent plant conservation claim.
+
+The three steam rows total 635.04 kg/h. Table 3 explicitly reports 150 degC and 476 kPa for each
+steam service, correcting the earlier incomplete guide statement. The source does not report steam
+quality, enthalpy, or injection tray locations, so temperature and pressure alone are not treated as
+a complete thermodynamic state. The API exposes the rows as evidence and does not create executable
+water streams or side-stripper topology.
 
 Table 4 gives the complete numeric pump-around rows:
 
@@ -62,6 +131,26 @@ Unlike the Al-Diwiniya reference, the Sarir paper does not say these HYSYS rates
 double[] volumePercent = SarirAtmosphericReference.getTbpCumulativeVolumePercent();
 double residuePercent = SarirAtmosphericReference.getTerminalResidueVolumePercent();
 
+double cloudPointLowerCelsius = SarirAtmosphericReference.getCrudeCloudPointLowerCelsius();
+double cloudPointUpperCelsius = SarirAtmosphericReference.getCrudeCloudPointUpperCelsius();
+double viscosityCst = SarirAtmosphericReference.getCrudeKinematicViscosityAt100FCst();
+
+SarirAtmosphericReference.AduStreamReference crudeFeed =
+    SarirAtmosphericReference.getAduStream("Crude oil tower");
+double feedRateKgPerHour = crudeFeed.getMassFlowRateKgPerHour();
+double tableClosure =
+    SarirAtmosphericReference.calculatePublishedAduMassBalanceErrorFraction();
+
+SarirAtmosphericReference.ProductSpecificationReference dieselSpecification =
+    SarirAtmosphericReference.getProductSpecification("Diesel");
+double dieselSpecificationCelsius =
+    dieselSpecification.getSpecificationTemperatureCelsius();
+
+SarirAtmosphericReference.ProductSpecificationReference residualSpecification =
+    SarirAtmosphericReference.getProductSpecification("Residual");
+boolean residualSpecificationIsNumeric =
+    residualSpecification.hasNumericSpecificationTemperature();
+
 SarirAtmosphericReference.ProductYieldReference diesel =
     SarirAtmosphericReference.getProductYield("Diesel");
 double plantRate = diesel.getPlantMetricTonPerDay();
@@ -73,6 +162,16 @@ double sourceFlowKgPerHour = topPumparound.getMassFlowRateKgPerHour();
 int rawSourceDrawTray = topPumparound.getSourceDrawTrayNumber();
 boolean trayBasisIsExplicit =
     SarirAtmosphericReference.hasExplicitPumparoundTrayNumberingBasis();
+
+SarirAtmosphericReference.SteamInjectionReference keroseneSteam =
+    SarirAtmosphericReference.getSteamInjection("Kerosene side stripper");
+double steamRateKgPerHour = keroseneSteam.getMassFlowRateKgPerHour();
+double totalSteamRateKgPerHour = SarirAtmosphericReference.getTotalSteamRateKgPerHour();
+boolean steamTemperatureAndPressureAreExplicit =
+    SarirAtmosphericReference.hasExplicitSteamTemperatureAndPressure();
+boolean steamQualityIsExplicit = SarirAtmosphericReference.hasExplicitSteamQuality();
+boolean steamStateIsExplicit =
+    SarirAtmosphericReference.hasExplicitSteamThermodynamicState();
 ```
 
 Static methods are directly accessible through JPype. Arrays are defensive copies, and unknown product labels or invalid error inputs fail closed.
@@ -107,8 +206,10 @@ components are modified.
 
 ## Scientific boundary
 
-The source-derived volumes and boiling boundaries are reproducible, while every supplied cut
-density and molar mass remains an explicit engineering input. The factory does not resolve the
+The source-derived volumes, boiling boundaries, and product-specification rows are reproducible,
+while every supplied cut density and molar mass remains an explicit engineering input. Product
+specifications are not laboratory results, independent validation targets, or a claim of NeqSim
+product compliance. The residual specification remains nonnumeric and open-ended. The factory does not resolve the
 missing light-end composition, distribute the published whole-crude sulfur among cuts, or claim
 that NeqSim reproduces the plant yields. A follow-on 34-tray comparison must preserve the plant
 rates as untouched acceptance targets and avoid tuning draw rates to the published products.
@@ -142,3 +243,6 @@ specifications, tuning targets, or numerical acceptance thresholds. This sensiti
 qualify plant-yield or D86 reproduction and does not model the published steam, pump-around,
 side-stripper, tray-hydraulic, or efficiency details. The separate pump-around reference rows are
 source evidence only; unresolved tray-numbering direction prevents direct model configuration.
+Likewise, the steam rows retain the published service allocation, rates, temperatures, and
+pressures but do not infer quality or enthalpy or configure water, injection locations, side-stripper
+topology, or heat duties.

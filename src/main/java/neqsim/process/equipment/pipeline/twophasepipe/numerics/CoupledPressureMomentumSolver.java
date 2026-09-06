@@ -68,10 +68,12 @@ public final class CoupledPressureMomentumSolver implements Serializable {
     private final double maximumRelativeVolumeResidual;
     private final boolean converged;
     private final boolean pressureCorrectionLimited;
+    private final double minimumMassFluxCorrectionScale;
 
     private Result(double[][] state, double[] pressure, double[] gasDensity, double[] oilDensity, double[] waterDensity,
         double[] gasSoundSpeed, double[] outletBoundaryMassCorrectionKg, double[][] phaseMassCorrectionsKg,
-        int iterations, double maximumRelativeVolumeResidual, boolean converged, boolean pressureCorrectionLimited) {
+        int iterations, double maximumRelativeVolumeResidual, boolean converged, boolean pressureCorrectionLimited,
+        double minimumMassFluxCorrectionScale) {
       this.state = state;
       this.pressure = pressure;
       this.gasDensity = gasDensity;
@@ -84,6 +86,7 @@ public final class CoupledPressureMomentumSolver implements Serializable {
       this.maximumRelativeVolumeResidual = maximumRelativeVolumeResidual;
       this.converged = converged;
       this.pressureCorrectionLimited = pressureCorrectionLimited;
+      this.minimumMassFluxCorrectionScale = minimumMassFluxCorrectionScale;
     }
 
     /** @return corrected conservative state */
@@ -149,6 +152,24 @@ public final class CoupledPressureMomentumSolver implements Serializable {
     public boolean isPressureCorrectionLimited() {
       return pressureCorrectionLimited;
     }
+
+    /** @return smallest phase-mass positivity scale used by an applied nonlinear correction */
+    public double getMinimumMassFluxCorrectionScale() {
+      return minimumMassFluxCorrectionScale;
+    }
+  }
+
+  private static final class MassFluxCorrectionResult {
+    private final double[] outletBoundaryMassCorrectionKg;
+    private final double minimumScale;
+    private final double[][] faceScale;
+
+    private MassFluxCorrectionResult(double[] outletBoundaryMassCorrectionKg, double minimumScale,
+        double[][] faceScale) {
+      this.outletBoundaryMassCorrectionKg = outletBoundaryMassCorrectionKg;
+      this.minimumScale = minimumScale;
+      this.faceScale = faceScale;
+    }
   }
 
   /**
@@ -212,6 +233,13 @@ public final class CoupledPressureMomentumSolver implements Serializable {
     }
     boolean converged = false;
     boolean correctionLimited = false;
+    double minimumMassFluxCorrectionScale = 1.0;
+    double[][] activeFaceScale = new double[PHASE_COUNT][cellCount + 1];
+    for (int phase = 0; phase < PHASE_COUNT; phase++) {
+      for (int face = 0; face <= cellCount; face++) {
+        activeFaceScale[phase][face] = 1.0;
+      }
+    }
     double maximumResidual = calculateMaximumRelativeVolumeResidual(correctedState, areas, densities);
     int[] faceDonors = null;
 
@@ -267,7 +295,8 @@ public final class CoupledPressureMomentumSolver implements Serializable {
         double leftCoefficient = 0.0;
         if (cell > 0) {
           double faceDistance = 0.5 * (lengths[cell - 1] + lengths[cell]);
-          double mobility = faceMobility(cell - 1, cell, faceDonors[cell - 1], cell, fluxPhaseAreas, areas, densities);
+          double mobility = faceMobility(cell - 1, cell, faceDonors[cell - 1], cell, fluxPhaseAreas, areas, densities,
+              activeFaceScale);
           leftCoefficient = timeStep * timeStep * mobility / (lengths[cell] * faceDistance);
           rightHandSide[cell] -= timeStep * timeStep * mobility * (1.0 - interpolationFraction)
               * interpolationDefect[cell] / lengths[cell];
@@ -276,7 +305,8 @@ public final class CoupledPressureMomentumSolver implements Serializable {
         double rightCoefficient = 0.0;
         if (cell < cellCount - 1) {
           double faceDistance = 0.5 * (lengths[cell] + lengths[cell + 1]);
-          double mobility = faceMobility(cell, cell + 1, faceDonors[cell], cell, fluxPhaseAreas, areas, densities);
+          double mobility = faceMobility(cell, cell + 1, faceDonors[cell], cell, fluxPhaseAreas, areas, densities,
+              activeFaceScale);
           rightCoefficient = timeStep * timeStep * mobility / (lengths[cell] * faceDistance);
           rightHandSide[cell] += timeStep * timeStep * mobility * (1.0 - interpolationFraction)
               * interpolationDefect[cell + 1] / lengths[cell];
@@ -350,12 +380,14 @@ public final class CoupledPressureMomentumSolver implements Serializable {
       }
 
       if (!checkerboardCorrectionEnabled) {
-        double[] iterationOutletCorrection = applyMassFluxCorrection(correctedState, timeStep,
+        MassFluxCorrectionResult massFluxCorrection = applyMassFluxCorrection(correctedState, timeStep,
             faceGradients(pressureCorrection, lengths), phaseAreas, areas, lengths, densities, outletPressureFixed,
             phaseMassCorrectionsKg);
         for (int phase = 0; phase < PHASE_COUNT; phase++) {
-          outletBoundaryMassCorrectionKg[phase] += iterationOutletCorrection[phase];
+          outletBoundaryMassCorrectionKg[phase] += massFluxCorrection.outletBoundaryMassCorrectionKg[phase];
         }
+        minimumMassFluxCorrectionScale = Math.min(minimumMassFluxCorrectionScale, massFluxCorrection.minimumScale);
+        activeFaceScale = massFluxCorrection.faceScale;
         applyMomentumCorrection(correctedState, timeStep, pressureCorrection, phaseAreas, lengths);
       }
 
@@ -389,9 +421,12 @@ public final class CoupledPressureMomentumSolver implements Serializable {
         // nor an inventory-limited transfer is silently accumulated twice.
         correctedState = copy(provisionalState);
         phaseMassCorrectionsKg = new double[cellCount + 1][PHASE_COUNT];
-        outletBoundaryMassCorrectionKg = applyMassFluxCorrection(correctedState, timeStep,
+        MassFluxCorrectionResult massFluxCorrection = applyMassFluxCorrection(correctedState, timeStep,
             combinedFaceGradients(totalPressureCorrection, lengths, interpolationDefect, interpolationFraction),
             initialPhaseAreas, areas, lengths, densities, outletPressureFixed, phaseMassCorrectionsKg);
+        outletBoundaryMassCorrectionKg = massFluxCorrection.outletBoundaryMassCorrectionKg;
+        minimumMassFluxCorrectionScale = Math.min(minimumMassFluxCorrectionScale, massFluxCorrection.minimumScale);
+        activeFaceScale = massFluxCorrection.faceScale;
         applyMomentumCorrection(correctedState, timeStep, totalPressureCorrection, initialPhaseAreas, lengths);
       }
 
@@ -399,7 +434,7 @@ public final class CoupledPressureMomentumSolver implements Serializable {
       if (checkerboardCorrectionEnabled && maximumResidual <= relativeVolumeTolerance && interpolationFraction < 1.0) {
         double[][] completeState = copy(provisionalState);
         double[][] completeTransfers = new double[cellCount + 1][PHASE_COUNT];
-        double[] completeOutlet = applyMassFluxCorrection(completeState, timeStep,
+        MassFluxCorrectionResult completeCorrection = applyMassFluxCorrection(completeState, timeStep,
             combinedFaceGradients(totalPressureCorrection, lengths, interpolationDefect, 1.0), initialPhaseAreas, areas,
             lengths, densities, outletPressureFixed, completeTransfers);
         double completeResidual = calculateMaximumRelativeVolumeResidual(completeState, areas, densities);
@@ -407,7 +442,9 @@ public final class CoupledPressureMomentumSolver implements Serializable {
           applyMomentumCorrection(completeState, timeStep, totalPressureCorrection, initialPhaseAreas, lengths);
           correctedState = completeState;
           phaseMassCorrectionsKg = completeTransfers;
-          outletBoundaryMassCorrectionKg = completeOutlet;
+          outletBoundaryMassCorrectionKg = completeCorrection.outletBoundaryMassCorrectionKg;
+          minimumMassFluxCorrectionScale = Math.min(minimumMassFluxCorrectionScale, completeCorrection.minimumScale);
+          activeFaceScale = completeCorrection.faceScale;
           maximumResidual = completeResidual;
           interpolationFraction = 1.0;
         }
@@ -418,7 +455,7 @@ public final class CoupledPressureMomentumSolver implements Serializable {
         && outletPressureConverged(correctedPressure, outletPressure, outletPressureFixed);
     return new Result(correctedState, correctedPressure, densities[GAS_MASS], densities[OIL_MASS],
         densities[WATER_MASS], soundSpeeds[GAS_MASS], outletBoundaryMassCorrectionKg, phaseMassCorrectionsKg,
-        iterations, maximumResidual, converged, correctionLimited);
+        iterations, maximumResidual, converged, correctionLimited, minimumMassFluxCorrectionScale);
   }
 
   /**
@@ -514,14 +551,14 @@ public final class CoupledPressureMomentumSolver implements Serializable {
   }
 
   private static double faceMobility(int leftCell, int rightCell, int donorCell, int volumeCell, double[][] phaseAreas,
-      double[] cellAreas, double[][] densities) {
+      double[] cellAreas, double[][] densities, double[][] activeFaceScale) {
     double faceArea = 0.5 * (cellAreas[leftCell] + cellAreas[rightCell]);
     double mobility = 0.0;
     for (int phase = 0; phase < PHASE_COUNT; phase++) {
       double alpha = Math.max(0.0, Math.min(1.0, phaseAreas[phase][donorCell] / cellAreas[donorCell]));
       // The shared mass transfer changes this row's volume at its own density.
       // A face-average density is not the derivative of that volume residual.
-      mobility += alpha / Math.max(densities[phase][volumeCell], MIN_DENSITY);
+      mobility += activeFaceScale[phase][rightCell] * alpha / Math.max(densities[phase][volumeCell], MIN_DENSITY);
     }
     return faceArea * mobility;
   }
@@ -550,14 +587,15 @@ public final class CoupledPressureMomentumSolver implements Serializable {
   static double[] applyConservativeMassFluxCorrection(double[][] state, double timeStep, double[] pressureCorrection,
       double[][] phaseAreas, double[] areas, double[] lengths, double[][] densities, boolean outletPressureFixed) {
     return applyMassFluxCorrection(state, timeStep, faceGradients(pressureCorrection, lengths), phaseAreas, areas,
-        lengths, densities, outletPressureFixed, null);
+        lengths, densities, outletPressureFixed, null).outletBoundaryMassCorrectionKg;
   }
 
-  private static double[] applyMassFluxCorrection(double[][] state, double timeStep, double[] facePressureGradient,
-      double[][] phaseAreas, double[] areas, double[] lengths, double[][] densities, boolean outletPressureFixed,
-      double[][] phaseMassCorrectionsKg) {
+  private static MassFluxCorrectionResult applyMassFluxCorrection(double[][] state, double timeStep,
+      double[] facePressureGradient, double[][] phaseAreas, double[] areas, double[] lengths, double[][] densities,
+      boolean outletPressureFixed, double[][] phaseMassCorrectionsKg) {
     int cellCount = state.length;
     double[][] faceMassFlowCorrection = new double[PHASE_COUNT][cellCount + 1];
+    double[][] faceScale = new double[PHASE_COUNT][cellCount + 1];
 
     for (int face = 1; face < cellCount; face++) {
       int leftCell = face - 1;
@@ -574,7 +612,8 @@ public final class CoupledPressureMomentumSolver implements Serializable {
 
     // Upwinding excludes absent donor phases, while this shared budget also
     // prevents a large correction from overdrawing a present donor phase.
-    limitCorrectionFluxesByDonorInventory(state, timeStep, lengths, faceMassFlowCorrection);
+    double minimumScale = limitCorrectionFluxesForPositivity(state, timeStep, faceMassFlowCorrection, faceScale,
+        lengths);
 
     if (phaseMassCorrectionsKg != null) {
       for (int face = 1; face < cellCount; face++) {
@@ -616,42 +655,74 @@ public final class CoupledPressureMomentumSolver implements Serializable {
         }
       }
     }
-    return outletBoundaryMassCorrectionKg;
+    return new MassFluxCorrectionResult(outletBoundaryMassCorrectionKg, minimumScale, faceScale);
   }
 
   /**
-   * Limit simultaneous outgoing pressure-correction fluxes by each donor's available phase inventory.
+   * Limit simultaneous outgoing correction fluxes by initial inventory and feasible incoming mass.
    *
    * <p>
-   * Both faces share one donor budget. Applying its factor to the shared face flux preserves each phase globally and
-   * prevents a gas-free or liquid-free cell from exporting that absent phase. The machine-sized margin on an active
-   * limit avoids a negative residual caused only by rounding the subsequent flux divergence.
+   * Both faces share one donor budget, and every face keeps a single conservative transfer. Donor scales decrease
+   * monotonically until initial mass plus already-limited incoming mass can supply each outgoing correction. This
+   * retains feasible through-flow, while the machine-sized margin prevents negative residuals from roundoff.
    * </p>
    *
    * @param state provisional conservative cell state
    * @param timeStep correction timestep in seconds
-   * @param lengths cell lengths in meters
    * @param faceFluxes per-phase face mass-flow corrections in kg/s, modified in place
+   * @param faceScale realized correction scales by phase and face
+   * @param lengths cell lengths in meters
+   * @return smallest scale applied to a nonzero face correction
    */
-  private static void limitCorrectionFluxesByDonorInventory(double[][] state, double timeStep, double[] lengths,
-      double[][] faceFluxes) {
+  private static double limitCorrectionFluxesForPositivity(double[][] state, double timeStep, double[][] faceFluxes,
+      double[][] faceScale, double[] lengths) {
     int cellCount = state.length;
+    double minimumScale = 1.0;
     double[] donorFactors = new double[cellCount];
     for (int phase = 0; phase < PHASE_COUNT; phase++) {
       for (int cell = 0; cell < cellCount; cell++) {
-        double outgoingRate = Math.max(faceFluxes[phase][cell + 1], 0.0) + Math.max(-faceFluxes[phase][cell], 0.0);
-        double requestedMass = timeStep * outgoingRate;
-        double availableMass = Math.max(state[cell][phase], 0.0) * lengths[cell];
         donorFactors[cell] = 1.0;
-        if (requestedMass > 0.0 && requestedMass >= availableMass) {
-          donorFactors[cell] = Math.min(1.0, availableMass / requestedMass) * (1.0 - 8.0 * Math.ulp(1.0));
+      }
+      // A decrease propagates at most one cell per pass in this one-dimensional donor graph.
+      for (int pass = 0; pass < cellCount; pass++) {
+        boolean changed = false;
+        for (int cell = 0; cell < cellCount; cell++) {
+          double leftFlux = faceFluxes[phase][cell];
+          double rightFlux = faceFluxes[phase][cell + 1];
+          double outgoingRate = Math.max(rightFlux, 0.0) + Math.max(-leftFlux, 0.0);
+          if (!(outgoingRate > 0.0)) {
+            continue;
+          }
+          double incomingRate = 0.0;
+          if (leftFlux > 0.0 && cell > 0) {
+            incomingRate += leftFlux * donorFactors[cell - 1];
+          }
+          if (rightFlux < 0.0 && cell < cellCount - 1) {
+            incomingRate -= rightFlux * donorFactors[cell + 1];
+          }
+          double requestedMass = timeStep * outgoingRate;
+          double availableMass = Math.max(state[cell][phase], 0.0) * lengths[cell] + timeStep * incomingRate;
+          double permittedScale = 1.0;
+          if (requestedMass >= availableMass) {
+            permittedScale = Math.min(1.0, availableMass / requestedMass) * (1.0 - 8.0 * Math.ulp(1.0));
+          }
+          if (permittedScale < donorFactors[cell]) {
+            donorFactors[cell] = Math.max(permittedScale, 0.0);
+            changed = true;
+          }
+        }
+        if (!changed) {
+          break;
         }
       }
       for (int face = 1; face < cellCount; face++) {
         int donor = faceFluxes[phase][face] >= 0.0 ? face - 1 : face;
-        faceFluxes[phase][face] *= donorFactors[donor];
+        faceScale[phase][face] = faceFluxes[phase][face] == 0.0 ? 1.0 : donorFactors[donor];
+        minimumScale = Math.min(minimumScale, faceScale[phase][face]);
+        faceFluxes[phase][face] *= faceScale[phase][face];
       }
     }
+    return minimumScale;
   }
 
   private static void applyMomentumCorrection(double[][] state, double timeStep, double[] pressureCorrection,

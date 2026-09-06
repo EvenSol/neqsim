@@ -164,6 +164,18 @@ public class RateBasedAbsorber extends SimpleAbsorber {
   private StreamInterface solventOutStream;
 
   // ======================== Results ========================
+  /** Connected amine regenerator for lean/rich loading recycle iteration. */
+  private AmineRegenerator regenerator;
+
+  /** Maximum absorber/regenerator loading-iteration count. */
+  private int regeneratorIterationLimit = 20;
+
+  /** Loading convergence tolerance [mol CO2/mol amine]. */
+  private double regeneratorLoadingTolerance = 1.0e-4;
+
+  /** Last lean/rich loading iteration error. */
+  private double regeneratorLoadingError = Double.NaN;
+
   /** Stage-by-stage results. */
   private List<StageResult> stageResults = new ArrayList<StageResult>();
 
@@ -421,6 +433,43 @@ public class RateBasedAbsorber extends SimpleAbsorber {
     return stageResults;
   }
 
+
+  /**
+   * Connects an amine regenerator used for lean/rich loading recycle convergence.
+   *
+   * @param regenerator amine regenerator unit
+   */
+  public void setRegenerator(AmineRegenerator regenerator) {
+    this.regenerator = regenerator;
+  }
+
+  /**
+   * Gets the connected amine regenerator.
+   *
+   * @return connected regenerator, or null if not configured
+   */
+  public AmineRegenerator getRegenerator() {
+    return regenerator;
+  }
+
+  /**
+   * Sets the maximum number of absorber/regenerator loading iterations.
+   *
+   * @param iterationLimit maximum iteration count
+   */
+  public void setRegeneratorIterationLimit(int iterationLimit) {
+    this.regeneratorIterationLimit = iterationLimit;
+  }
+
+  /**
+   * Gets the last lean/rich loading convergence error.
+   *
+   * @return absolute loading error
+   */
+  public double getRegeneratorLoadingError() {
+    return regeneratorLoadingError;
+  }
+
   /** {@inheritDoc} */
   @Override
   public void run(UUID id) {
@@ -498,7 +547,32 @@ public class RateBasedAbsorber extends SimpleAbsorber {
     solventOutStream.setThermoSystem(liquidPhase);
     solventOutStream.setCalculationIdentifier(id);
 
+    if (regenerator != null) {
+      iterateWithRegenerator(id);
+    }
+
     setCalculationIdentifier(id);
+  }
+
+  /**
+   * Iterates lean/rich loading with the connected regenerator.
+   *
+   * @param id calculation identifier
+   */
+  private void iterateWithRegenerator(UUID id) {
+    double previousLeanLoading = regenerator.getLeanLoading();
+    for (int i = 0; i < regeneratorIterationLimit; i++) {
+      regenerator.setRichAmineFeed(getSolventOutStream());
+      regenerator.run(id);
+      if (regenerator.getLeanAmineBottoms() != null) {
+        solventInStream = regenerator.getLeanAmineBottoms();
+      }
+      regeneratorLoadingError = Math.abs(regenerator.getLeanLoading() - previousLeanLoading);
+      previousLeanLoading = regenerator.getLeanLoading();
+      if (regeneratorLoadingError < regeneratorLoadingTolerance) {
+        break;
+      }
+    }
   }
 
   /**

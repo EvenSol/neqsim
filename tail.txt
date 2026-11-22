@@ -1,0 +1,17 @@
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.797 s -- in neqsim.chemicalreactions.MethaneWaterPHTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.472 s -- in neqsim.mcp.runners.GeneralCapabilityRunnerTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.536 s -- in neqsim.process.equipment.absorber.StrippingColumnTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.552 s -- in neqsim.process.equipment.distillation.PackedColumnTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.170 s -- in neqsim.process.equipment.network.TransientCompositionalPipeNetworkTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 42.31 s -- in neqsim.process.equipment.pipeline.TwoFluidPipeClosedPhaseTransitionTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 146.8 s -- in neqsim.process.equipment.pipeline.TwoFluidPipeShutInRobustnessTest
+[WARNING] Tests run: 8, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 421.6 s -- in neqsim.process.equipment.pipeline.twophasepipe.SevereSluggingExperimentalBenchmarkTest
+[WARNING] Tests run: 6, Failures: 0, Errors: 0, Skipped: 6, Time elapsed: 0.004 s -- in neqsim.process.equipment.pipeline.twophasepipe.TwoFluidUnsplitTengesdalPreparationTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 29.82 s -- in neqsim.process.examples.OilGasProcessSimulationOptimizationTest
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 77.22 s -- in neqsim.process.util.optimizer.CoolingDutyProductionAnalysisTest
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 14.17 s -- in neqsim.thermo.system.HydrateComprehensiveTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.449 s -- in neqsim.thermodynamicoperations.flashops.saturationops.CO2BrineHydrateReferenceAssessmentTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.466 s -- in neqsim.thermodynamicoperations.flashops.saturationops.ElectrolytePhaseBoundaryFlashTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.376 s -- in neqsim.thermodynamicoperations.flashops.saturationops.LowSalinityNaClCO2SolubilityLiu2021AssessmentTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 442.9 s -- in neqsim.thermodynamicoperations.phaseenvelopeops.multicomponentenvelopeops.PTPhaseEnvelopeContinuityTest
+[INFO] Tests run: 71, Failures: 0, Errors: 0, Skipped: 7

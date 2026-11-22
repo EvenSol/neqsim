@@ -1,0 +1,16 @@
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 27.82 s -- in neqsim.fluidmechanics.flowsystem.onephaseflowsystem.pipeflowsystem.OnePhaseConservativeSpeciesTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.323 s -- in neqsim.process.calibration.BatchParameterEstimatorIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.553 s -- in neqsim.process.equipment.distillation.DistillationColumnModeTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.736 s -- in neqsim.process.equipment.distillation.internals.ColumnInternalsDesignerTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 20.78 s -- in neqsim.process.equipment.pipeline.OnePhasePipeLineCompositionalTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 11.19 s -- in neqsim.process.equipment.pipeline.TwoFluidPipeEnergyBalanceTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 38.94 s -- in neqsim.process.equipment.pipeline.TwoFluidPressureMomentumLongHorizonTest
+[WARNING] Tests run: 1, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.005 s -- in neqsim.process.equipment.pipeline.twophasepipe.TwoFluidCellFaceTengesdalPreparationTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.686 s -- in neqsim.process.equipment.separator.ThreePhaseGasScrubberTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.377 s -- in neqsim.process.processmodel.LargeCombinedModelsTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.717 s -- in neqsim.pvtsimulation.simulation.HydrocarbonScrubberSaturationPressureStabilityTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.048 s -- in neqsim.thermodynamicoperations.flashops.TPFlashBenchmarkTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 14.22 s -- in neqsim.thermodynamicoperations.flashops.saturationops.CO2ElectrolyteFurstScaleIdentifiabilityAssessmentTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 17.87 s -- in neqsim.thermodynamicoperations.flashops.saturationops.KClCO2SolubilityMousaviChapoyBurgass2024AssessmentTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 140.4 s -- in neqsim.thermodynamicoperations.flashops.saturationops.PitzerHydrateSalinityValidationTest
+[INFO] Tests run: 42, Failures: 0, Errors: 0, Skipped: 1

@@ -481,9 +481,9 @@ public class MultiStageSeparatorTest extends BasePVTsimulation {
    * Stores the density, molar mass and viscosity of a liquid stage phase in a stage result.
    *
    * <p>
-   * The phase must belong to the fluid that was just flashed at the stage conditions and must have
-   * had its physical properties initialised after that flash, so that the published values are the
-   * properties of this stage and not those inherited from an earlier stage.
+   * The phase must belong to the fluid that was just flashed at the stage conditions and must have had its physical
+   * properties initialised after that flash, so that the published values are the properties of this stage and not
+   * those inherited from an earlier stage.
    * </p>
    *
    * @param result the stage result to fill

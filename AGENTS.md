@@ -70,6 +70,23 @@ mvnw.cmd install                          # Windows
 ./mvnw checkstyle:check spotbugs:check pmd:check  # static analysis
 ```
 
+## Pull Request Branches (start from upstream)
+
+When working from a fork, every PR branch MUST start from the latest
+`equinor/neqsim` `master`, never from the fork's own `master` (forks do not
+sync automatically and may hold fork-only commits). Then the PR contains
+only the intended change.
+
+```bash
+git fetch https://github.com/equinor/neqsim master
+git checkout -b <branch-name> FETCH_HEAD   # or: git rebase --onto FETCH_HEAD <old-base>
+# ... commit the change ...
+git push -u origin <branch-name>           # push to the fork, open PR against equinor/neqsim:master
+```
+
+Before opening the PR, check that `git log FETCH_HEAD..HEAD` lists only your
+own commits.
+
 ## Python Environment Reuse
 
 Use the Python interpreter explicitly selected by the user or parent workflow. If

@@ -7,3 +7,6 @@ Please read and follow the instructions in [AGENTS.md](AGENTS.md).
 
 All code MUST compile with Java 8. See `AGENTS.md` for forbidden features,
 build commands, code patterns, skills, and the task-solving workflow.
+
+Every PR branch MUST start from the latest `equinor/neqsim` `master`, not the
+fork's `master`. See "Pull Request Branches" in `AGENTS.md`.

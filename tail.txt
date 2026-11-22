@@ -1,0 +1,16 @@
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.680 s -- in neqsim.fluidmechanics.flownode.twophasenode.twophasepipeflownode.StratifiedFlowNodeTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 140.2 s -- in neqsim.physicalproperties.interfaceproperties.surfacetension.CDFTSurfaceTensionCalibrationTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 329.8 s -- in neqsim.process.equipment.distillation.ColumnStudyRegressionTest
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.620 s -- in neqsim.process.equipment.distillation.SimpleTraySideDrawTest
+[INFO] Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 45.72 s -- in neqsim.process.equipment.network.TwoFluidPipeNetworkTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 11.87 s -- in neqsim.process.equipment.pipeline.TwoFluidPipeCoupledCapabilityTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 36.86 s -- in neqsim.process.equipment.pipeline.TwoFluidPipeTransientNullTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.785 s -- in neqsim.process.equipment.pipeline.twophasepipe.TransientThreePhaseFlowTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.021 s -- in neqsim.process.equipment.separator.SeparatorPhaseConsistencyTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.153 s -- in neqsim.process.lng.LNGProcessBuilderTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 15.19 s -- in neqsim.pvtsimulation.flowassurance.CO2CorrosionAnalyzerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.001 s -- in neqsim.thermo.util.readwrite.EclipseFluidReadWriteTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in neqsim.thermodynamicoperations.flashops.saturationops.CO2ChlorideSaltPairCurvatureAssessmentTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.799 s -- in neqsim.thermodynamicoperations.flashops.saturationops.KClCO2OstwaldReferenceAssessmentTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.166 s -- in neqsim.thermodynamicoperations.flashops.saturationops.NButaneKijTest
+[INFO] Tests run: 69, Failures: 0, Errors: 0, Skipped: 0

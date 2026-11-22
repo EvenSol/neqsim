@@ -1,0 +1,16 @@
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.127 s -- in neqsim.chemicalreactions.ReactiveElectrolyteEquilibriumTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 215.1 s -- in neqsim.physicalproperties.interfaceproperties.surfacetension.CDFTCriticalCorrectionCalibrationTest
+[WARNING] Tests run: 34, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 9.244 s -- in neqsim.process.equipment.distillation.ColumnSpecificationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 58.71 s -- in neqsim.process.equipment.distillation.SarirAtmosphericMainSteamScreenTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 55.31 s -- in neqsim.process.equipment.network.TwoFluidPipeNetworkRefinementStudyTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 111.3 s -- in neqsim.process.equipment.pipeline.TwoFluidPipeCondensationTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 75.80 s -- in neqsim.process.equipment.pipeline.TwoFluidPipeThreePhaseHandoffTest
+[WARNING] Tests run: 15, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 20.06 s -- in neqsim.process.equipment.pipeline.twophasepipe.TransientPipeVsBeggsAndBrillsComparisonTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 31.72 s -- in neqsim.process.equipment.reservoir.SimpleReservoirTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 23.03 s -- in neqsim.process.fielddevelopment.lifecycle.NorwegianOilFieldLifecycleTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.472 s -- in neqsim.pvtsimulation.flowassurance.AsphalteneMultiMethodBenchmarkTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 34.48 s -- in neqsim.thermo.system.SystemEosGEOperationsTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 11.19 s -- in neqsim.thermodynamicoperations.flashops.saturationops.CO2BrineSolubilityBurgassTohidi1995AssessmentTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.507 s -- in neqsim.thermodynamicoperations.flashops.saturationops.HydrateModelsGuideDocumentationTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 34.19 s -- in neqsim.thermodynamicoperations.flashops.saturationops.NButaneIssueTest
+[INFO] Tests run: 92, Failures: 0, Errors: 0, Skipped: 2

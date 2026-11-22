@@ -1,0 +1,37 @@
+Spotless Check (Java)....................................................Passed
+Documentation Search Coverage............................................Passed
+- hook id: documentation-search-check
+- duration: 2.65s
+
+warning: `VIRTUAL_ENV=.venv` does not match the project environment path `devtools/.venv` and will be ignored; use `--active` to target the active environment instead
+Using CPython 3.13.18
+Creating virtual environment at: devtools/.venv
+   Building neqsim-dev-setup @ file:///home/runner/work/neqsim/neqsim/devtools
+Downloading kiwisolver (1.4MiB)
+Downloading pandas (11.4MiB)
+Downloading networkx (2.0MiB)
+Downloading numpy (15.0MiB)
+Downloading fonttools (5.2MiB)
+Downloading reportlab (1.9MiB)
+Downloading neqsim (52.4MiB)
+Downloading pillow (6.8MiB)
+Downloading lxml (5.0MiB)
+Downloading onnxruntime (26.5MiB)
+Downloading pymupdf (65.8MiB)
+Downloading matplotlib (9.4MiB)
+ Downloaded kiwisolver
+ Downloaded reportlab
+ Downloaded networkx
+ Downloaded lxml
+ Downloaded fonttools
+ Downloaded pillow
+ Downloaded matplotlib
+ Downloaded pandas
+ Downloaded numpy
+ Downloaded onnxruntime
+ Downloaded neqsim
+ Downloaded pymupdf
+      Built neqsim-dev-setup @ file:///home/runner/work/neqsim/neqsim/devtools
+Installed 32 packages in 64ms
+Documentation search source audit passed: 860 Markdown pages and 1 standalone HTML page(s).
+

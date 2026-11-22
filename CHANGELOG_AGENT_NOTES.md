@@ -9,6 +9,59 @@
 
 ---
 
+## 2026-11-22 — Stage oil properties, CCE/DL saturation state, named-paraffin wax (#5208, #5209, #5210)
+
+Reported by Patrick Mockridge.
+
+- Fixed (#5208): `MultiStageSeparatorTest` stage rows (`getOilDensity()`, `getOilMW()`, `getOilViscosity()`) now describe
+  the oil flashed at that stage; the density was the previous stage's (first row: reservoir oil). Migration: hard-coded
+  stage-density references shift; stock-tank results are unchanged.
+- Fixed (#5209): `DifferentialLiberation` and `ConstantMassExpansion` evaluate the saturated cell at the single-phase
+  side of the bisection bracket and take Vsat as the whole-cell corrected volume. A trace phase 0 near Psat no longer sets
+  Vsat (was 7e-10 m3, relative volumes about 2e5). DL reads oil and liberates gas by phase type.
+  `ConstantVolumeDepletion.calculateGasDensityQC()` uses each step's gas molar mass and the temperature in K;
+  `calculateOilDensityQC()` initialises densities after each flash.
+- Fixed (#5210): `TPmultiflashWAX` converges every phase fraction (relative change below 1e-6), so a gas phase
+  re-entering after the liquid freezes out is no longer stopped at about 4e-7. `getWaxModel().addTBPWax()` gives named
+  wax formers with only the database placeholder (273.0 K / 6000 J/mol: nC15, nC17-nC24) the Pedersen melting
+  temperature and heat of fusion, before or after `addSolidComplexPhase("wax")`; measured database data are kept.
+- Updated: `docs/pvtsimulation/pvt_lab_tests.md`, `docs/thermo/characterization/wax_characterization.md`,
+  `neqsim-wax-calculations` and `neqsim-flow-assurance` skills, `pvt-simulation` agent.
+## 2026-11-22 — Chloride SCC for carbon steel; electrolyte pH bridge guard
+
+- Fixed: `ChlorideSCCAssessment` reported carbon and low-alloy steels (carbon steel, X65, API 5L ...) as at chloride SCC
+  risk via the 316L envelope; they are now "Not susceptible" with NaN limits (`isCarbonOrLowAlloySteel(String)`).
+  A reversed check meant "316" alone matched no 316 envelope.
+- Fixed: `NorsokM506ElectrolyteBridge` finds a water-rich phase typed as oil, and falls back to the M-506 correlation
+  pH when the aqueous phase is suspect (water < 0.7 mol frac) or the electrolyte pH is outside 2.5-10;
+  `isElectrolytePhaseSuspect()` (also in `toMap()`/`toJson()`).
+- Known issue: electrolyte CPA pH of CO2-saturated water is about 0.9 units high (non-conservative corrosion rates).
+- Updated: `docs/process/corrosion/chloride_scc_assessment.md`, `norsok_m506_corrosion_rate.md`,
+  `neqsim-flow-assurance` skill, `flow-assurance` agent.
+## 2026-11-22 — Calibrated asphaltene solid model; onset-search fixes
+
+- New: `neqsim.pvtsimulation.flowassurance.AsphalteneSolidModel` (Nghiem and Coombe solid model on SRK/PR).
+  Anchors the solid asphaltene fugacity at a measured onset (`calibrate(T, P)`), optionally fits the solid volume
+  from a lower onset (`calibrateLowerOnset`), the temperature term from a second temperature (`calibrateTemperature`)
+  and the size-asymmetry k_ij exponent from a blend onset (`fitKijExponent`). Gives upper and lower onset
+  (`onsetPressures`), the precipitated fraction, and blend or gas-injection onsets from the host calibration.
+  In a 90 C synthetic oil calibrated at 250 bara, 10 and 30 mol % condensate raise the onset to 258 and 282 bara.
+- Fixed: `AsphalteneOnsetFunction` `BINARY_INTERACTION` had no effect and `COMBINED` ignored its second parameter;
+  both now set the asphaltene-methane k_ij with size-scaled values for the other components. Association
+  types need CPA (`IllegalStateException` otherwise). The search now uses `AsphalteneOnsetPressureFlash`, so a fluid
+  unstable at the start or a failed flash raises instead of returning the start pressure or a silent NaN.
+- Fixed: `PedersenAsphalteneCharacterization.calculateOnsetPressure` counted any second liquid (water included)
+  as an onset and returned the start pressure for an already-split fluid. It now requires an asphaltene-rich
+  liquid, enables the multiphase check during the search, and raises on an unstable start or failed flash.
+- New: `AsphalteneOnsetPressureFlash.setPressureTolerance(double)`.
+- Migration: code that relied on the start pressure being returned as "onset" now gets `IllegalStateException`;
+  choose a higher start pressure or treat it as unstable. Fits made with `BINARY_INTERACTION` before this date
+  did not change the model.
+- Updated: `docs/pvtsimulation/flowassurance/asphaltene_modeling.md` (section 9), `asphaltene_parameter_fitting.md`,
+  flow-assurance README, `neqsim-flow-assurance` skill, `flow-assurance` agent.
+
+---
+
 ## 2026-11-22 — `TwoFluidPipe` closure solves no longer repeated (run time only)
 
 - No API or result change: steady and transient profiles on the benchmark lines agree to the 13 digits printed, and the

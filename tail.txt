@@ -1,0 +1,16 @@
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.154 s -- in neqsim.mcp.runners.ChemistryRunnerTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.081 s -- in neqsim.process.equipment.absorber.AbsorptionColumnTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.257 s -- in neqsim.process.equipment.distillation.NaphtaliSandholmPublishedStateTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 91.11 s -- in neqsim.process.equipment.network.PipeFlowNetworkTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.481 s -- in neqsim.process.equipment.pipeline.TwoFluidPhaseAppearancePipelineTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 20.19 s -- in neqsim.process.equipment.pipeline.TwoFluidPipeLiteratureValidationTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 11.08 s -- in neqsim.process.equipment.pipeline.twophasepipe.CoupledPressureMomentumTengesdalProgressTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 324.9 s -- in neqsim.process.equipment.pipeline.twophasepipe.TwoFluidPipeSharedSlugForceBalanceTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.232 s -- in neqsim.process.examples.InletSeparatorSafetySystemExampleTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 13.86 s -- in neqsim.process.util.optimizer.BottleneckAnalysisOptimizerTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 65.60 s -- in neqsim.thermo.system.ElectrolyteCPAHydrateEquilibriumTest
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.685 s -- in neqsim.thermodynamicoperations.flashops.saturationops.CO2BrineHydratePhaseStateTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 67.86 s -- in neqsim.thermodynamicoperations.flashops.saturationops.CO2WaterBaselineReferenceAssessmentTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 11.18 s -- in neqsim.thermodynamicoperations.flashops.saturationops.LowSalinityDivalentBrineCO2SolubilityLiu2021AssessmentTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 11.23 s -- in neqsim.thermodynamicoperations.flashops.saturationops.WaterNaClCO2SolubilityMousaviChapoyBurgass2024AssessmentTest
+[INFO] Tests run: 61, Failures: 0, Errors: 0, Skipped: 0

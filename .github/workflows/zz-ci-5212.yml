@@ -1,0 +1,65 @@
+name: zz-ci-5212
+on:
+  push:
+    branches: [tmp/ci-5212]
+permissions:
+  contents: write
+jobs:
+  precommit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: 21, cache: maven}
+      - uses: astral-sh/setup-uv@v5
+        with: {python-version: "3.13"}
+      - run: uv tool install pre-commit
+      - id: t
+        run: pre-commit run --all-files --hook-stage pre-push > log.txt 2>&1
+      - if: always()
+        run: |
+          echo "${{ steps.t.outcome }}" > status.txt; tail -c 20000 log.txt > tail.txt
+          git config user.name ci-bot; git config user.email ci-bot@users.noreply.github.com
+          git checkout --orphan tmp/ci-5212-precommit; git rm -rq --cached .; git add -f status.txt tail.txt
+          git commit -qm r; git push -f origin tmp/ci-5212-precommit
+  fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: 21, cache: maven}
+      - id: t
+        run: mvn -B test -ntp -DskipITs "-Djacoco.skip=true" > log.txt 2>&1
+      - if: always()
+        run: |
+          echo "${{ steps.t.outcome }}" > status.txt
+          grep -E "Tests run:.*Fail|FAIL|ERROR\]|<<< " log.txt | tail -300 > tail.txt || true
+          git config user.name ci-bot; git config user.email ci-bot@users.noreply.github.com
+          git checkout --orphan tmp/ci-5212-fast; git rm -rq --cached .; git add -f status.txt tail.txt
+          git commit -qm r; git push -f origin tmp/ci-5212-fast
+  slow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: {shard: [0,1,2,3,4,5,6,7]}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: 21, cache: maven}
+      - id: t
+        env: {SHARD_INDEX: "${{ matrix.shard }}", SHARD_COUNT: 8}
+        run: |
+          mapfile -t f < <(grep -rl --include='*.java' '@Tag("slow")' src/test/java | sort)
+          sel=(); for i in "${!f[@]}"; do if ((i % SHARD_COUNT == SHARD_INDEX)); then c="${f[$i]#src/test/java/}"; c="${c%.java}"; sel+=("${c//\//.}"); fi; done
+          pat=$(IFS=,; echo "${sel[*]}")
+          set -o pipefail
+          mvn -B test -ntp -Dtest="$pat" -Dgroups=slow "-DexcludedTestGroups=" "-Djacoco.skip=true" > log.txt 2>&1
+      - if: always()
+        run: |
+          echo "${{ steps.t.outcome }}" > status.txt
+          grep -E "Tests run:.*Fail|FAIL|ERROR\]|<<< " log.txt | tail -200 > tail.txt || true
+          git config user.name ci-bot; git config user.email ci-bot@users.noreply.github.com
+          git checkout --orphan tmp/ci-5212-slow${{ matrix.shard }}; git rm -rq --cached .; git add -f status.txt tail.txt
+          git commit -qm r; git push -f origin tmp/ci-5212-slow${{ matrix.shard }}

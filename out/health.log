@@ -1,0 +1,10 @@
+warning: `VIRTUAL_ENV=.venv` does not match the project environment path `devtools/.venv` and will be ignored; use `--active` to target the active environment instead
+Code health: failed; 2 new finding groups
+Selected findings: {"pmd": 8, "spotbugs": 10985}
+Triage: src/main/java/neqsim/process/equipment/distillation/DistillationColumn.java (16852 lines, 2071 branch tokens)
+Triage: src/main/java/neqsim/process/equipment/pipeline/TwoFluidPipe.java (14778 lines, 1818 branch tokens)
+Triage: devtools/unisim_reader.py (8117 lines, 1709 branch tokens)
+Triage: src/main/java/neqsim/process/processmodel/ProcessSystem.java (11509 lines, 1436 branch tokens)
+Triage: src/main/java/neqsim/thermodynamicoperations/flashops/TPflash.java (5267 lines, 1290 branch tokens)
+spotbugs:AT_STALE_THREAD_WRITE_OF_PRIMITIVE src/main/java/neqsim/process/equipment/pipeline/TwoFluidPipe.java: P2:Class:neqsim.process.equipment.pipeline.TwoFluidPipe:::|Method:neqsim.process.equipment.pipeline.TwoFluidPipe:setFrozenCompositionDensityUpdate:(Z)V:|Field:neqsim.process.equipment.pipeline.TwoFluidPipe:frozenCompositionDensityUpdate:Z:
+spotbugs:NEQSIM_PHYSICAL_WITHOUT_INIT src/main/java/neqsim/pvtsimulation/simulation/MultiStageSeparatorTest.java: P2:Class:neqsim.pvtsimulation.simulation.MultiStageSeparatorTest:::|Method:neqsim.pvtsimulation.simulation.MultiStageSeparatorTest:recordLiquidProperties:(Lneqsim/pvtsimulation/simulation/MultiStageSeparatorTest$SeparatorStageResult;Lneqsim/thermo/phase/PhaseInterface;)V:
